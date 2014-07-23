@@ -20,8 +20,10 @@
     "skipper-adapter-tests": "^1.1.5"
   },
   "dependencies": {
+    "concat-stream": "^1.4.6",
     "gridfs-stream": "^0.5.1",
     "lodash": "^2.4.1",
-    "mongodb": "^1.4.7"
+    "mongodb": "^1.4.7",
+    "path": "^0.4.9"
   }
 }

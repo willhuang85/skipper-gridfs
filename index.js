@@ -3,11 +3,15 @@
  */
 
 var Writable = require('stream').Writable;
+var Transform = require('stream').Transform;
 var _ = require('lodash');
+var path = require('path');
+var concat = require('concat-stream');
 var mongo = require('mongodb');
 var MongoClient = mongo.MongoClient;
 var Server = mongo.Server;
 var Grid = require('gridfs-stream');
+var GridStore = mongo.GridStore;
 
 
 /**
@@ -20,15 +24,90 @@ var Grid = require('gridfs-stream');
 module.exports = function GridFSStore (globalOpts) {
     globalOpts = globalOpts || {};
 
+    _.defaults(globalOpts, {
+
+        // By default, create new files on disk
+        // using their uploaded filenames.
+        // (no overwrite-checking is performed!!)
+        saveAs: function (__newFile) {
+            return __newFile.filename;
+        },
+
+        // Max bytes (defaults to ~15MB)
+        maxBytes: 15000000,
+
+        // By default, upload files to `/` (within the bucket)
+        dirname: '/'
+    });
     var adapter = {
         ls: function (dirpath, cb) {
-            return cb(new Error('TODO'));
+            var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority'});
+            var data = new Array();
+            db.open(function(err, db) {
+                var gfs = Grid(db, mongo);
+                gfs.files.find({'metadata.dirPath': dirpath}).toArray(function(err, files) {
+                    db.close();
+                    
+                    _.each(files, function(file) {
+                        data.push(file.filename);
+                    });
+                    cb(err, data);
+                });
+                
+
+            });
+            
         },
         read: function (filepath, cb) {
-            return cb(new Error('TODO'));
+            var __transform__ = new Transform();
+            __transform__._transform = function (chunk, encoding, callback) {
+                return callback(null, chunk);
+            };
+            var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority'});
+            
+            // __transform__.on('error', function(err) {
+            //     cb(err);
+            // });
+            // __transform__.pipe(concat(function(data){
+            //     cb(null, data);
+            // }));
+            // var readLen = 0;
+            // var gotEnd = 0;
+            db.open(function(err, db) {
+                var gfs = Grid(db, mongo);
+                gfs.files.find({'metadata.filePath': filepath}).toArray(function(err, files){
+
+                    var gridStoreR = new GridStore(db, files[0]._id, "r");
+                    gridStoreR.open(function(err, gs){
+                         // Create a stream to the file
+                        var stream = gs.stream(true);
+                        stream.pipe(concat(function(data){
+                            cb(null, data);
+                        }));
+
+                        stream.on('error', function(err) {
+                            cb(err);
+                        });
+
+                        stream.on("close", function() {
+                            db.close();
+                        });
+                    });
+                });
+                
+            });
         },
         rm: function(filepath, cb) {
-            return cb(new Error('TODO'));
+            var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority', native_parser: true});
+            db.open(function(err, db) {
+                var gfs = Grid(db, mongo);
+                gfs.files.find({'metadata.filePath': filepath}).toArray(function(err, files){
+                    gfs.remove({_id: files[0]._id}, function(err){
+                        db.close();
+                        if (err) cb(err);
+                    });
+                });
+            });
         },
         receive: GridFSReceiver,
         receiver: GridFSReceiver // (synonym for `.receive()`)
@@ -59,6 +138,20 @@ module.exports = function GridFSStore (globalOpts) {
         receiver__._write = function onFile(__newFile, encoding, done) {
             var db = new mongo.Db(options.dbname, new Server(options.host, options.port), {w: 'majority'});
 
+            var filePath, dirPath, filename;
+            if (options.id) {
+                // If `options.id` was specified, use it directly as the path.
+                filePath = options.id;
+                dirPath = path.dirname(filePath);
+                filename = path.basename(filePath);
+            }
+            else {
+                // Otherwise, use the more sophisiticated options:
+                dirPath = path.resolve(options.dirname);
+                filename = options.filename || options.saveAs(__newFile);
+                filePath = path.join(dirPath, filename);
+            }
+
             receiver__.once('error', function (err) {
                 console.log('ERROR ON RECEIVER__ ::',err);
             });
@@ -69,10 +162,13 @@ module.exports = function GridFSStore (globalOpts) {
                     return;
                 }
 
-                // var db = mongoclient.db(options.dbname);
                 var gfs = Grid(db, mongo);
                 var outs = gfs.createWriteStream({
-                    filename: __newFile.filename
+                    filename: filename,
+                    metadata: {
+                        filePath: filePath,
+                        dirPath: dirPath
+                    }
                 });
                 __newFile.on('error', function (err) {
                     console.log('***** READ error on file ' + __newFile.filename, '::', err);
@@ -80,11 +176,12 @@ module.exports = function GridFSStore (globalOpts) {
                 outs.on('error', function failedToWriteFile(err) {
                     console.log('Error on output stream- garbage collecting unfinished uploads...');
                 });
-                outs.on('close', function doneWritingFile() {
+                outs.on('close', function doneWritingFile(file) {
                     db.close();
                     done();
                 });
                 __newFile.pipe(outs);
+                
             })
 
         };
