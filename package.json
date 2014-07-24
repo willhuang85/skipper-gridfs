@@ -1,6 +1,6 @@
 {
   "name": "skipper-gridfs",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A skipper adapter to allow uploading files to MongoDB's GridFS",
   "main": "index.js",
   "scripts": {
@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "concat-stream": "^1.4.6",
-    "gridfs-stream": "https://github.com/willhuang85/gridfs-stream/tarball/master",
+    "gridfs-stream": "^0.5.1",
     "lodash": "^2.4.1",
     "mongodb": "^1.4.7",
     "path": "^0.4.9"

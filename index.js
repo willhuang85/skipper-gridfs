@@ -159,8 +159,8 @@ module.exports = function GridFSStore (globalOpts) {
                 outs.on('error', function failedToWriteFile(err) {
                     console.log('Error on output stream- garbage collecting unfinished uploads...');
                 });
-                outs.on('open', function(store) {
-                    extra = _.assign({fileId: store.fileId}, store.metadata);
+                outs.on('open', function() {
+                    extra = _.assign({fileId: this.id}, this.options.metadata);
                     __newFile.extra = extra;
                 });
                 outs.on('close', function doneWritingFile(file) {
