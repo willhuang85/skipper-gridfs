@@ -11,7 +11,7 @@ $ npm install skipper-gridfs --save
 
 ## Usage
 
-First instantiate a blob adapter (`gridfsAdapter`):
+First instantiate a gridfs adapter (`gridfsAdapter`):
 
 ```js
 var gridfsAdapter = require('skipper-gridfs')();
