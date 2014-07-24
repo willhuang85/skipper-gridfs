@@ -3,15 +3,12 @@
  */
 
 var Writable = require('stream').Writable;
-var Transform = require('stream').Transform;
 var _ = require('lodash');
 var path = require('path');
 var concat = require('concat-stream');
 var mongo = require('mongodb');
-var MongoClient = mongo.MongoClient;
 var Server = mongo.Server;
 var Grid = require('gridfs-stream');
-var GridStore = mongo.GridStore;
 
 
 /**
@@ -53,48 +50,28 @@ module.exports = function GridFSStore (globalOpts) {
                     });
                     cb(err, data);
                 });
-                
-
             });
             
         },
         read: function (filepath, cb) {
-            var __transform__ = new Transform();
-            __transform__._transform = function (chunk, encoding, callback) {
-                return callback(null, chunk);
-            };
             var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority'});
             
-            // __transform__.on('error', function(err) {
-            //     cb(err);
-            // });
-            // __transform__.pipe(concat(function(data){
-            //     cb(null, data);
-            // }));
-            // var readLen = 0;
-            // var gotEnd = 0;
             db.open(function(err, db) {
                 var gfs = Grid(db, mongo);
                 gfs.files.find({'metadata.filePath': filepath}).toArray(function(err, files){
+                    var readstream = gfs.createReadStream({_id: files[0]._id});
+                    readstream.pipe(concat(function(data){
+                        cb(null, data);
+                    }));
 
-                    var gridStoreR = new GridStore(db, files[0]._id, "r");
-                    gridStoreR.open(function(err, gs){
-                         // Create a stream to the file
-                        var stream = gs.stream(true);
-                        stream.pipe(concat(function(data){
-                            cb(null, data);
-                        }));
+                    readstream.on('error', function(err) {
+                        cb(err);
+                    });
 
-                        stream.on('error', function(err) {
-                            cb(err);
-                        });
-
-                        stream.on("close", function() {
-                            db.close();
-                        });
+                    readstream.on("close", function() {
+                        db.close();
                     });
                 });
-                
             });
         },
         rm: function(filepath, cb) {
