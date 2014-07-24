@@ -85,4 +85,4 @@ req.file('foo')
 
 ## Contributions
 
-are welcomed
+are welcomed :ok_hand:
