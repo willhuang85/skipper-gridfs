@@ -83,3 +83,7 @@ req.file('foo')
 ```
 
 ========================================
+
+## Contributions
+
+are welcomed
