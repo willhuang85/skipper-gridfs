@@ -30,9 +30,6 @@ module.exports = function GridFSStore (globalOpts) {
             return __newFile.filename;
         },
 
-        // Max bytes (defaults to ~15MB)
-        maxBytes: 15000000,
-
         dirname: '/',
 
         dbname: 'your-mongodb-name',
@@ -69,11 +66,12 @@ module.exports = function GridFSStore (globalOpts) {
                         return cb(null, data);
                     }));
 
-                    readstream.on('error', function(err) {
+                    readstream.once('error', function(err) {
+                        db.close();
                         return cb(err);
                     });
 
-                    readstream.on('end', function() {
+                    readstream.once('end', function() {
                         db.close();
                     });
                 });
@@ -136,6 +134,7 @@ module.exports = function GridFSStore (globalOpts) {
             }
 
             receiver__.once('error', function (err) {
+                db.close();
                 console.log('ERROR ON RECEIVER__ ::',err);
             });
 
@@ -153,17 +152,19 @@ module.exports = function GridFSStore (globalOpts) {
                         dirPath: dirPath
                     }
                 });
-                __newFile.on('error', function (err) {
+                __newFile.once('error', function (err) {
+                    receiver__.emit('error', err);
                     console.log('***** READ error on file ' + __newFile.filename, '::', err);
                 });
-                outs.on('error', function failedToWriteFile(err) {
+                outs.once('error', function failedToWriteFile(err) {
+                    receiver__.emit('error', err);
                     console.log('Error on output stream- garbage collecting unfinished uploads...');
                 });
-                outs.on('open', function() {
+                outs.once('open', function() {
                     extra = _.assign({fileId: this.id}, this.options.metadata);
                     __newFile.extra = extra;
                 });
-                outs.on('close', function doneWritingFile(file) {
+                outs.once('close', function doneWritingFile(file) {
                     db.close();
                     done();
                 });
