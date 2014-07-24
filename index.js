@@ -23,7 +23,7 @@ module.exports = function GridFSStore (globalOpts) {
 
     _.defaults(globalOpts, {
 
-        // By default, create new files on disk
+        // By default, create new files on Gridstore
         // using their uploaded filenames.
         // (no overwrite-checking is performed!!)
         saveAs: function (__newFile) {
@@ -33,8 +33,13 @@ module.exports = function GridFSStore (globalOpts) {
         // Max bytes (defaults to ~15MB)
         maxBytes: 15000000,
 
-        // By default, upload files to `/` (within the bucket)
-        dirname: '/'
+        dirname: '/',
+
+        dbname: 'your-mongodb-name',
+
+        host: 'localhost',
+
+        port: 27017
     });
     var adapter = {
         ls: function (dirpath, cb) {
@@ -48,7 +53,7 @@ module.exports = function GridFSStore (globalOpts) {
                     _.each(files, function(file) {
                         data.push(file.filename);
                     });
-                    cb(err, data);
+                    return cb(err, data);
                 });
             });
             
@@ -61,14 +66,14 @@ module.exports = function GridFSStore (globalOpts) {
                 gfs.files.find({'metadata.filePath': filepath}).toArray(function(err, files){
                     var readstream = gfs.createReadStream({_id: files[0]._id});
                     readstream.pipe(concat(function(data){
-                        cb(null, data);
+                        return cb(null, data);
                     }));
 
                     readstream.on('error', function(err) {
-                        cb(err);
+                        return cb(err);
                     });
 
-                    readstream.on("close", function() {
+                    readstream.on('end', function() {
                         db.close();
                     });
                 });
@@ -81,7 +86,8 @@ module.exports = function GridFSStore (globalOpts) {
                 gfs.files.find({'metadata.filePath': filepath}).toArray(function(err, files){
                     gfs.remove({_id: files[0]._id}, function(err){
                         db.close();
-                        if (err) cb(err);
+                        if (err) return cb(err);
+                        else return cb();
                     });
                 });
             });
@@ -152,6 +158,10 @@ module.exports = function GridFSStore (globalOpts) {
                 });
                 outs.on('error', function failedToWriteFile(err) {
                     console.log('Error on output stream- garbage collecting unfinished uploads...');
+                });
+                outs.on('open', function(store) {
+                    extra = _.assign({fileId: store.fileId}, store.metadata);
+                    __newFile.extra = extra;
                 });
                 outs.on('close', function doneWritingFile(file) {
                     db.close();

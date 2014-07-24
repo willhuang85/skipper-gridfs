@@ -1,15 +1,21 @@
 {
   "name": "skipper-gridfs",
-  "version": "0.0.0",
+  "version": "0.0.2",
   "description": "A skipper adapter to allow uploading files to MongoDB's GridFS",
   "main": "index.js",
   "scripts": {
-    "test": "node -e \"require('skipper-adapter-tests')({module: require('./'), dbname: 'skipper-adapter-tests', host: 'localhost', port: 27017});\""
+    "test": "node -e \"require('skipper-adapter-tests')({module: require('./')});\""
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/willhuang85/skipper-gridfs.git"
   },
+  "keywords": [
+    "skipper",
+    "gridfs",
+    "skipper-gridfs",
+    "mongodb"
+  ],
   "author": "Will Huang <willhuang85@gmail.com>",
   "license": "MIT",
   "bugs": {
@@ -21,7 +27,7 @@
   },
   "dependencies": {
     "concat-stream": "^1.4.6",
-    "gridfs-stream": "^0.5.1",
+    "gridfs-stream": "https://github.com/willhuang85/gridfs-stream/tarball/master",
     "lodash": "^2.4.1",
     "mongodb": "^1.4.7",
     "path": "^0.4.9"
