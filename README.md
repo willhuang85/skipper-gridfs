@@ -56,7 +56,7 @@ var receiving = blobAdapter.receive({
 |-----------|:----------:|---------|
 | `dbname`     | ((string)) | Your Mongodb database (_required_) |
 | `host`     | ((string)) | Your Mongodb host address", e.g. `"localhost"` (_required_) |
-| `port`     | ((integer)) | Your Mongodb ip address, e.g. `27017` (_required_) |
+| `port`     | ((integer)) | Your Mongodb port address, e.g. `27017` (_required_) |
 | `dirname`  | ((string)) | Metadata associated with the Gridstore to emulate directory structure in MongoDb. Defaults to `"/"`
 | `saveAs()`  | ((function)) | An optional function that can be used to define the logic for naming files. For example: <br/> `function (file) {return Math.random()+file.name;} });` <br/> By default, the filename of the uploaded file is used, including the extension (e.g. `"Screen Shot 2014-05-06 at 4.44.02 PM.jpg"`.  If a file already exists at `dirname` with the same name, it will be overridden. |
 
