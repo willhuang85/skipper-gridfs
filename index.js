@@ -57,11 +57,10 @@ module.exports = function GridFSStore (globalOpts) {
         },
         read: function (filepath, cb) {
             var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority'});
-            
             db.open(function(err, db) {
                 var gfs = Grid(db, mongo);
-                gfs.files.find({'metadata.filePath': filepath}).toArray(function(err, files){
-                    var readstream = gfs.createReadStream({_id: files[0]._id});
+                gfs.files.findOne({'metadata.filePath': filepath}, function(err, file) {
+                    var readstream = gfs.createReadStream({_id: file._id});
                     readstream.pipe(concat(function(data){
                         return cb(null, data);
                     }));
@@ -81,13 +80,14 @@ module.exports = function GridFSStore (globalOpts) {
             var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority', native_parser: true});
             db.open(function(err, db) {
                 var gfs = Grid(db, mongo);
-                gfs.files.find({'metadata.filePath': filepath}).toArray(function(err, files){
-                    gfs.remove({_id: files[0]._id}, function(err){
+                gfs.files.findOne({'metadata.filePath': filepath}, function(err, file) {
+                    gfs.remove({_id: file._id}, function(err) {
                         db.close();
                         if (err) return cb(err);
-                        else return cb();
+                        return cb();
                     });
                 });
+
             });
         },
         receive: GridFSReceiver,
@@ -160,7 +160,7 @@ module.exports = function GridFSStore (globalOpts) {
                     receiver__.emit('error', err);
                     console.log('Error on output stream- garbage collecting unfinished uploads...');
                 });
-                outs.once('open', function() {
+                outs.once('open', function openedWriteStream() {
                     extra = _.assign({fileId: this.id}, this.options.metadata);
                     __newFile.extra = extra;
                 });
