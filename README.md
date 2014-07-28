@@ -2,7 +2,7 @@
 
 [![NPM version](https://badge.fury.io/js/skipper-gridfs.png)](http://badge.fury.io/js/skipper-gridfs) &nbsp; &nbsp;
 
-GridFS adapter for receiving streams of file streams. Particularly useful for streaming multipart file uploads via [Skipper](github.com/balderdashy/skipper).
+GridFS adapter for receiving streams of file streams. Particularly useful for streaming multipart file uploads via [Skipper](https://www.github.com/balderdashy/skipper).
 
 ========================================
 
