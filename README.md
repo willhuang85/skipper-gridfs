@@ -4,6 +4,8 @@
 
 GridFS adapter for receiving streams of file streams. Particularly useful for streaming multipart file uploads via [Skipper](github.com/balderdashy/skipper).
 
+========================================
+
 ## Installation
 
 ```
