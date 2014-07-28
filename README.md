@@ -1,5 +1,8 @@
-skipper-gridfs
-==============
+# Skipper GridFS Blob Adapter
+
+[![NPM version](https://badge.fury.io/js/skipper-gridfs.svg)](http://badge.fury.io/js/skipper-gridfs) &nbsp; &nbsp;
+
+GridFS adapter for receiving streams of file streams. Particularly useful for streaming multipart file uploads via [Skipper](github.com/balderdashy/skipper).
 
 ## Installation
 
