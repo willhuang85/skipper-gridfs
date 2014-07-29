@@ -1,6 +1,6 @@
 {
   "name": "skipper-gridfs",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "A skipper adapter to allow uploading files to MongoDB's GridFS",
   "main": "index.js",
   "scripts": {
@@ -14,7 +14,8 @@
     "skipper",
     "gridfs",
     "skipper-gridfs",
-    "mongodb"
+    "mongodb",
+    "upload"
   ],
   "author": "Will Huang <willhuang85@gmail.com>",
   "license": "MIT",
