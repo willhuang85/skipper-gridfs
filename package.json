@@ -1,6 +1,6 @@
 {
   "name": "skipper-gridfs",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "A skipper adapter to allow uploading files to MongoDB's GridFS",
   "main": "index.js",
   "scripts": {
