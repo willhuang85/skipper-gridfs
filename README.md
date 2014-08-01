@@ -12,7 +12,7 @@ GridFS adapter for receiving streams of file streams. Particularly useful for st
 $ npm install skipper-gridfs --save
 ```
 
-==============
+========================================
 
 ## Usage
 
