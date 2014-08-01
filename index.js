@@ -3,13 +3,13 @@
  */
 
 var Writable = require('stream').Writable;
+var util = require('util');
 var _ = require('lodash');
 var path = require('path');
 var concat = require('concat-stream');
-var mongo = require('mongodb');
-var Server = mongo.Server;
+var mongoose = require('mongoose');
 var Grid = require('gridfs-stream');
-
+Grid.mongo = mongoose.mongo;
 
 /**
  * skipper-gridfs
@@ -17,6 +17,8 @@ var Grid = require('gridfs-stream');
  * @param  {Object} globalOpts
  * @return {Object}
  */
+
+ var poop = 'localhost';
 
 module.exports = function GridFSStore (globalOpts) {
     globalOpts = globalOpts || {};
@@ -36,16 +38,28 @@ module.exports = function GridFSStore (globalOpts) {
 
         host: 'localhost',
 
-        port: 27017
+        port: 27017,
+
+        bucket: mongoose.mongo.GridStore.DEFAULT_ROOT_COLLECTION,
+
+        username: '',
+
+        password: '',
+
+        uri: '',
+
+        mongoOpts: { db: { native_parser: true, w: 'majority' }}
     });
+
     var adapter = {
         ls: function (dirpath, cb) {
-            var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority'});
+            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             var data = new Array();
-            db.open(function(err, db) {
-                var gfs = Grid(db, mongo);
-                gfs.files.find({'metadata.dirPath': dirpath}).toArray(function(err, files) {
-                    db.close();
+            conn.once('open', function() {
+                var gfs = Grid(conn.db);
+                gfs.collection(globalOpts.bucket).find({'metadata.dirPath': dirpath}).toArray(function(err, files) {
+                    mongoose.disconnect();
+                    if (err) return cb(err);
                     
                     _.each(files, function(file) {
                         data.push(file.filename);
@@ -56,35 +70,43 @@ module.exports = function GridFSStore (globalOpts) {
             
         },
         read: function (filepath, cb) {
-            var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority'});
-            db.open(function(err, db) {
-                var gfs = Grid(db, mongo);
-                gfs.files.findOne({'metadata.filePath': filepath}, function(err, file) {
-                    var readstream = gfs.createReadStream({_id: file._id});
+            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
+            conn.once('open', function() {
+                var gfs = Grid(conn.db);
+                gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
+                    if (err) {
+                        mongoose.disconnect();
+                        return cb(err);
+                    }
+                    var readstream = gfs.createReadStream({_id: file._id, root: globalOpts.bucket});
                     readstream.pipe(concat(function(data){
                         return cb(null, data);
                     }));
 
                     readstream.once('error', function(err) {
-                        db.close();
+                        mongoose.disconnect();
                         return cb(err);
                     });
 
                     readstream.once('end', function() {
-                        db.close();
+                        mongoose.disconnect();
                     });
                 });
             });
         },
         rm: function(filepath, cb) {
-            var db = new mongo.Db(globalOpts.dbname, new Server(globalOpts.host, globalOpts.port), {w: 'majority', native_parser: true});
-            db.open(function(err, db) {
-                var gfs = Grid(db, mongo);
-                gfs.files.findOne({'metadata.filePath': filepath}, function(err, file) {
-                    gfs.remove({_id: file._id}, function(err) {
-                        db.close();
+            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
+            conn.once('open', function() {
+                var gfs = Grid(conn.db);
+                gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
+                    if (err) {
+                        mongoose.disconnect();
+                        cb(err);
+                    }
+                    gfs.remove({_id: file._id, root: globalOpts.bucket}, function(err) {
+                        mongoose.disconnect();
                         if (err) return cb(err);
-                        return cb();
+                        return cb(null, filepath);
                     });
                 });
 
@@ -108,16 +130,17 @@ module.exports = function GridFSStore (globalOpts) {
     function GridFSReceiver (options) {
         options = options || {};
         options = _.defaults(options, globalOpts);
+        // console.log(options);
 
         var receiver__ = Writable({
             objectMode: true
         });
 
+        var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
         // This `_write` method is invoked each time a new file is received
         // from the Readable stream (Upstream) which is pumping filestreams
         // into this receiver.  (filename === `__newFile.filename`).
         receiver__._write = function onFile(__newFile, encoding, done) {
-            var db = new mongo.Db(options.dbname, new Server(options.host, options.port), {w: 'majority'});
 
             var filePath, dirPath, filename;
             if (options.id) {
@@ -133,20 +156,16 @@ module.exports = function GridFSStore (globalOpts) {
                 filePath = path.join(dirPath, filename);
             }
 
-            receiver__.once('error', function (err) {
-                db.close();
+            receiver__.once('error', function (err) { 
+                mongoose.disconnect();      
                 console.log('ERROR ON RECEIVER__ ::',err);
             });
 
-            db.open(function(err, db) {
-                if (err) {
-                    receiver__.emit('error', err);
-                    return;
-                }
-
-                var gfs = Grid(db, mongo);
+            conn.once('open', function() {
+                var gfs = Grid(conn.db);
                 var outs = gfs.createWriteStream({
                     filename: filename,
+                    root: options.bucket,
                     metadata: {
                         filePath: filePath,
                         dirPath: dirPath
@@ -165,19 +184,33 @@ module.exports = function GridFSStore (globalOpts) {
                     __newFile.extra = extra;
                 });
                 outs.once('close', function doneWritingFile(file) {
-                    db.close();
+                    conn.db.close();
                     done();
                 });
                 __newFile.pipe(outs);
                 
             })
-
         };
-
         return receiver__;
     }
 
+    function _getURI () {
+        if (globalOpts.uri && _URIisValid(globalOpts.uri)) {
+            return globalOpts.uri;
+        } else {
+            return util.format('mongodb://%s:%s@%s:%d/%s', 
+                globalOpts.username, 
+                globalOpts.password, 
+                globalOpts.host, 
+                globalOpts.port, 
+                globalOpts.dbname);
+        }
+    }
 
+    function _URIisValid(uri) {
+        //TODO
+        return true;
+    }
 };
 
 
