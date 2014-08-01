@@ -49,9 +49,11 @@ module.exports = function GridFSStore (globalOpts) {
         mongoOpts: { db: { native_parser: true, w: 'majority' }}
     });
 
+    _setURI();
+
     var adapter = {
         ls: function (dirpath, cb) {
-            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
+            var conn = mongoose.createConnection(globalOpts.uri, globalOpts.mongoOpts);
             var data = new Array();
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
@@ -68,7 +70,7 @@ module.exports = function GridFSStore (globalOpts) {
             
         },
         read: function (filepath, cb) {
-            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
+            var conn = mongoose.createConnection(globalOpts.uri, globalOpts.mongoOpts);
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
                 gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
@@ -93,7 +95,7 @@ module.exports = function GridFSStore (globalOpts) {
             });
         },
         rm: function(filepath, cb) {
-            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
+            var conn = mongoose.createConnection(globalOpts.uri, globalOpts.mongoOpts);
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
                 gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
@@ -128,13 +130,12 @@ module.exports = function GridFSStore (globalOpts) {
     function GridFSReceiver (options) {
         options = options || {};
         options = _.defaults(options, globalOpts);
-        // console.log(options);
 
         var receiver__ = Writable({
             objectMode: true
         });
 
-        var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
+        var conn = mongoose.createConnection(options.uri, options.mongoOpts);
         // This `_write` method is invoked each time a new file is received
         // from the Readable stream (Upstream) which is pumping filestreams
         // into this receiver.  (filename === `__newFile.filename`).
@@ -157,10 +158,12 @@ module.exports = function GridFSStore (globalOpts) {
             receiver__.once('error', function (err) { 
                 mongoose.disconnect();      
                 console.log('ERROR ON RECEIVER__ ::',err);
+                done(err);
             });
 
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
+
                 var outs = gfs.createWriteStream({
                     filename: filename,
                     root: options.bucket,
@@ -192,11 +195,18 @@ module.exports = function GridFSStore (globalOpts) {
         return receiver__;
     }
 
-    function _getURI () {
+    function _setURI() {
         if (globalOpts.uri && _URIisValid(globalOpts.uri)) {
-            return globalOpts.uri;
+            var startOfBucketIndex = globalOpts.uri.lastIndexOf('.');
+            if (startOfBucketIndex > -1) {
+                var bucket = globalOpts.uri.substr(startOfBucketIndex+1, globalOpts.uri.length);
+                globalOpts.bucket = bucket;
+                globalOpts.uri = globalOpts.uri.substr(0, startOfBucketIndex);
+            } else {
+                globalOpts.uri = globalOpts.uri;
+            }
         } else {
-            return util.format('mongodb://%s:%s@%s:%d/%s', 
+            globalOpts.uri = util.format('mongodb://%s:%s@%s:%d/%s', 
                 globalOpts.username, 
                 globalOpts.password, 
                 globalOpts.host, 
