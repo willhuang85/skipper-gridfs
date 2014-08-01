@@ -203,12 +203,12 @@ module.exports = function GridFSStore (globalOpts) {
                 globalOpts.password = typeof uriObject.password === 'undefined' ? '' : uriObject.password;
                 globalOpts.host = typeof uriObject.hosts[0].host === 'undefined' ? globalOpts.host : uriObject.hosts[0].host;
                 globalOpts.port = typeof uriObject.hosts[0].port === 'undefined' ? globalOpsts.port : uriObject.hosts[0].port;
-                var database = typeof uriObject.database === 'undefined' ? globalOpts.database : uriObject.database;
+                var database = typeof uriObject.database === 'undefined' ? globalOpts.dbname : uriObject.database;
                 if (database.indexOf('.') > -1) {
-                    globalOpts.database = database.substr(0, database.indexOf('.'));
+                    globalOpts.dbname = database.substr(0, database.indexOf('.'));
                     globalOpts.bucket = database.substr(database.indexOf('.')+1, database.length);
                 } else {
-                    globalOpts.database = database;
+                    globalOpts.dbname = database;
                 }
             } catch (err) {
                 console.log('Using defaults', err);
@@ -224,7 +224,7 @@ module.exports = function GridFSStore (globalOpts) {
                 host: globalOpts.host,
                 port: globalOpts.port
             }],
-            database: globalOpts.database
+            database: globalOpts.dbname
         })
     }
 
