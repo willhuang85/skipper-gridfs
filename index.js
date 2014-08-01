@@ -3,7 +3,7 @@
  */
 
 var Writable = require('stream').Writable;
-var util = require('util');
+var mongodburi = require('mongodb-uri');
 var _ = require('lodash');
 var path = require('path');
 var concat = require('concat-stream');
@@ -53,7 +53,7 @@ module.exports = function GridFSStore (globalOpts) {
 
     var adapter = {
         ls: function (dirpath, cb) {
-            var conn = mongoose.createConnection(globalOpts.uri, globalOpts.mongoOpts);
+            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             var data = new Array();
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
@@ -70,7 +70,7 @@ module.exports = function GridFSStore (globalOpts) {
             
         },
         read: function (filepath, cb) {
-            var conn = mongoose.createConnection(globalOpts.uri, globalOpts.mongoOpts);
+            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
                 gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
@@ -95,7 +95,7 @@ module.exports = function GridFSStore (globalOpts) {
             });
         },
         rm: function(filepath, cb) {
-            var conn = mongoose.createConnection(globalOpts.uri, globalOpts.mongoOpts);
+            var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
                 gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
@@ -135,7 +135,7 @@ module.exports = function GridFSStore (globalOpts) {
             objectMode: true
         });
 
-        var conn = mongoose.createConnection(options.uri, options.mongoOpts);
+        var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
         // This `_write` method is invoked each time a new file is received
         // from the Readable stream (Upstream) which is pumping filestreams
         // into this receiver.  (filename === `__newFile.filename`).
@@ -197,22 +197,35 @@ module.exports = function GridFSStore (globalOpts) {
 
     function _setURI() {
         if (globalOpts.uri && _URIisValid(globalOpts.uri)) {
-            var startOfBucketIndex = globalOpts.uri.lastIndexOf('.');
-            if (startOfBucketIndex > -1) {
-                var bucket = globalOpts.uri.substr(startOfBucketIndex+1, globalOpts.uri.length);
-                globalOpts.bucket = bucket;
-                globalOpts.uri = globalOpts.uri.substr(0, startOfBucketIndex);
-            } else {
-                globalOpts.uri = globalOpts.uri;
+            try {
+                var uriObject = mongodburi.parse(globalOpts.uri);
+                globalOpts.username = typeof uriObject.username === 'undefined' ? '' : uriObject.username;
+                globalOpts.password = typeof uriObject.password === 'undefined' ? '' : uriObject.password;
+                globalOpts.host = typeof uriObject.hosts[0].host === 'undefined' ? globalOpts.host : uriObject.hosts[0].host;
+                globalOpts.port = typeof uriObject.hosts[0].port === 'undefined' ? globalOpsts.port : uriObject.hosts[0].port;
+                var database = typeof uriObject.database === 'undefined' ? globalOpts.database : uriObject.database;
+                if (database.indexOf('.') > -1) {
+                    globalOpts.database = database.substr(0, database.indexOf('.'));
+                    globalOpts.bucket = database.substr(database.indexOf('.')+1, database.length);
+                } else {
+                    globalOpts.database = database;
+                }
+            } catch (err) {
+                console.log('Using defaults', err);
             }
-        } else {
-            globalOpts.uri = util.format('mongodb://%s:%s@%s:%d/%s', 
-                globalOpts.username, 
-                globalOpts.password, 
-                globalOpts.host, 
-                globalOpts.port, 
-                globalOpts.dbname);
         }
+    }
+
+    function _getURI() {
+        return globalOpts.uri = mongodburi.format({
+            username: globalOpts.username,
+            password: globalOpts.password,
+            hosts: [{
+                host: globalOpts.host,
+                port: globalOpts.port
+            }],
+            database: globalOpts.database
+        })
     }
 
     function _URIisValid(uri) {

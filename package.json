@@ -1,10 +1,10 @@
 {
   "name": "skipper-gridfs",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "A skipper adapter to allow uploading files to MongoDB's GridFS",
   "main": "index.js",
   "scripts": {
-    "test": "node -e \"require('skipper-adapter-tests')({module: require('./'), uri: 'mongodb://:@localhost:27017/your-mongodb-name.your-bucket-name'});\""
+    "test": "node -e \"require('skipper-adapter-tests')({module: require('./'), uri: 'mongodb://localhost:27017/your-mongodb-name.my-bucket'});\""
   },
   "repository": {
     "type": "git",
@@ -31,8 +31,8 @@
     "gridfs-stream": "^0.5.1",
     "lodash": "^2.4.1",
     "mongodb": "^1.4.7",
+    "mongodb-uri": "^0.9.7",
     "mongoose": "^3.8.14",
-    "path": "^0.4.9",
-    "util": "^0.10.3"
+    "path": "^0.4.9"
   }
 }
