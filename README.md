@@ -67,7 +67,7 @@ var receiving = blobAdapter.receive({
 | `bucket`     | ((string)) | Your Mongodb bucket. Defaults to `"fs"` bucket. |
 | `username`     | ((string)) | Your Mongodb database username. Defaults to `""`. |
 | `password`     | ((string)) | Your Mongodb database password. Defaults to `""`.|
-| `uri`     | ((string)) | An optional parameter if you wish the enter your mongodb credentials as a URI, e.g. `mongodb://username:password@localhost:27107/databasename`.<br/> If `uri` is passed in as an option, then the options `dbname`, `host`, `port`, `username` and `password` options are ignored.<br/>Check out the [mongoose api](http://mongoosejs.com/docs/api.html#index_Mongoose-createConnection) for more examples of URIs.|
+| `uri`     | ((string)) | An optional parameter if you wish the enter your mongodb credentials as a URI, e.g. `mongodb://username:password@localhost:27107/databasename.bucket`.<br/> If `uri` is passed in as an option, then the options `dbname`, `host`, `port`, `username`, `password` and `bucket` (if passed into the `uri`) options are ignored.<br/>(Check [mongo client URI syntax](http://api.mongodb.org/java/current/com/mongodb/MongoClientURI.html)).
 
 ========================================
 
