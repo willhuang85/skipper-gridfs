@@ -59,15 +59,12 @@ var receiving = blobAdapter.receive({
 
 | Option    | Type       | Details |
 |-----------|:----------:|---------|
-| `dbname`     | ((string)) | Your Mongodb database. Defaults to `"your-mongodb-name"`. |
-| `host`     | ((string)) | Your Mongodb host address. Defaults to `"localhost"`. |
-| `port`     | ((integer)) | Your Mongodb port address. Defaults to `27107`.|
 | `dirname`  | ((string)) | Metadata associated with the Gridstore to emulate directory structure in MongoDb. Defaults to `"/"`
 | `saveAs()`  | ((function)) | An optional function that can be used to define the logic for naming files. For example: <br/> `function (file) {return Math.random()+file.name;} });` <br/> By default, the filename of the uploaded file is used, including the extension (e.g. `"Screen Shot 2014-05-06 at 4.44.02 PM.jpg"`.  If a file already exists at `dirname` with the same name, it will be overridden. |
-| `bucket`     | ((string)) | Your Mongodb bucket. Defaults to `"fs"` bucket. |
-| `username`     | ((string)) | Your Mongodb database username. Defaults to `""`. |
-| `password`     | ((string)) | Your Mongodb database password. Defaults to `""`.|
-| `uri`     | ((string)) | An optional parameter if you wish the enter your mongodb credentials as a URI, e.g. `mongodb://username:password@localhost:27107/databasename.bucket`.<br/> If `uri` is passed in as an option, then the options `dbname`, `host`, `port`, `username`, `password` and `bucket` (if passed into the `uri`) options are ignored.<br/>(Check [mongo client URI syntax](http://api.mongodb.org/java/current/com/mongodb/MongoClientURI.html)).
+| `uri`     | ((string)) | An optional parameter if you wish the enter your mongodb credentials as a URI, e.g. `mongodb://username:password@localhost:27107/databasename.bucket`.<br/> (Check [mongo client URI syntax](http://api.mongodb.org/java/current/com/mongodb/MongoClientURI.html)).|
+
+>>Note:
+>>Please use uri instead of passing in separate options for `username`, `password`, `host`, `port`, `dbname` and `bucket`
 
 ========================================
 
