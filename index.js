@@ -18,8 +18,6 @@ Grid.mongo = mongoose.mongo;
  * @return {Object}
  */
 
- var poop = 'localhost';
-
 module.exports = function GridFSStore (globalOpts) {
     globalOpts = globalOpts || {};
 
