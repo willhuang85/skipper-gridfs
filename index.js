@@ -2,10 +2,11 @@
  * Module dependencies
  */
 
+var path = require('path');
+var util = require('util');
 var Writable = require('stream').Writable;
 var mongodburi = require('mongodb-uri');
 var _ = require('lodash');
-var path = require('path');
 var concat = require('concat-stream');
 var mongoose = require('mongoose');
 var Grid = require('gridfs-stream');
@@ -67,6 +68,14 @@ module.exports = function GridFSStore (globalOpts) {
                 gfs.collection(globalOpts.bucket).findOne({'metadata.fd': fd}, function(err, file) {
                     if (err) {
                         mongoose.disconnect();
+                        return cb(err);
+                    }
+                    if (!file) {
+                        err = new Error('ENOENT');
+                        err.name = 'Error (ENOENT)';
+                        err.code = 'ENOENT';
+                        err.status = 404;
+                        err.message = util.format('No file exists in this mongo gridfs bucket with that file descriptor (%s)', fd);
                         return cb(err);
                     }
                     var readstream = gfs.createReadStream({_id: file._id, root: globalOpts.bucket});
@@ -131,7 +140,7 @@ module.exports = function GridFSStore (globalOpts) {
         receiver__._write = function onFile(__newFile, encoding, done) {
             
             var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
-            
+
             console.log('write fd:',__newFile.fd);
             var fd = __newFile.fd;
 
