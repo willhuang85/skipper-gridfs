@@ -112,8 +112,7 @@ module.exports = function GridFSStore (globalOpts) {
 
             });
         },
-        receive: GridFSReceiver,
-        receiver: GridFSReceiver // (synonym for `.receive()`)
+        receive: GridFSReceiver
     };
 
     return adapter;
