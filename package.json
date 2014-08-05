@@ -32,7 +32,6 @@
     "lodash": "~2.4.1",
     "mongodb": "~1.4.7",
     "mongodb-uri": "~0.9.7",
-    "mongoose": "~3.8.14",
-    "path": "~0.4.9"
+    "mongoose": "~3.8.14"
   }
 }
