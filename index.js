@@ -23,8 +23,6 @@ module.exports = function GridFSStore (globalOpts) {
 
     _.defaults(globalOpts, {
 
-        dirname: '/',
-
         dbname: 'your-mongodb-name',
 
         host: 'localhost',
@@ -45,12 +43,12 @@ module.exports = function GridFSStore (globalOpts) {
     _setURI();
 
     var adapter = {
-        ls: function (dirpath, cb) {
+        ls: function (dirname, cb) {
             var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             var data = new Array();
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
-                gfs.collection(globalOpts.bucket).find({'metadata.dirPath': dirpath}).toArray(function(err, files) {
+                gfs.collection(globalOpts.bucket).find({'metadata.dirname': dirname}).toArray(function(err, files) {
                     mongoose.disconnect();
                     if (err) return cb(err);
                     
@@ -62,11 +60,11 @@ module.exports = function GridFSStore (globalOpts) {
             });
             
         },
-        read: function (filepath, cb) {
+        read: function (fd, cb) {
             var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
-                gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
+                gfs.collection(globalOpts.bucket).findOne({'metadata.fd': fd}, function(err, file) {
                     if (err) {
                         mongoose.disconnect();
                         return cb(err);
@@ -87,11 +85,11 @@ module.exports = function GridFSStore (globalOpts) {
                 });
             });
         },
-        rm: function(filepath, cb) {
+        rm: function(fd, cb) {
             var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
-                gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
+                gfs.collection(globalOpts.bucket).findOne({'metadata.fd': fd}, function(err, file) {
                     if (err) {
                         mongoose.disconnect();
                         cb(err);
@@ -99,7 +97,7 @@ module.exports = function GridFSStore (globalOpts) {
                     gfs.remove({_id: file._id, root: globalOpts.bucket}, function(err) {
                         mongoose.disconnect();
                         if (err) return cb(err);
-                        return cb(null, filepath);
+                        return cb(null, fd);
                     });
                 });
 
@@ -133,19 +131,20 @@ module.exports = function GridFSStore (globalOpts) {
         // into this receiver.  (filename === `__newFile.filename`).
         receiver__._write = function onFile(__newFile, encoding, done) {
 
-            var filePath, dirPath, filename;
-            if (options.id) {
-                // If `options.id` was specified, use it directly as the path.
-                filePath = options.id;
-                dirPath = path.dirname(filePath);
-                filename = path.basename(filePath);
-            }
-            else {
-                // Otherwise, use the more sophisiticated options:
-                dirPath = path.resolve(options.dirname);
-                filename = options.filename || options.saveAs(__newFile);
-                filePath = path.join(dirPath, filename);
-            }
+            // var fd, dirname, filename;
+            // if (options.id) {
+            //     // If `options.id` was specified, use it directly as the path.
+            //     fd = options.id;
+            //     dirname = path.dirname(fd);
+            //     filename = path.basename(fd);
+            // }
+            // else {
+            //     // Otherwise, use the more sophisiticated options:
+            //     dirname = path.resolve(options.dirname);
+            //     filename = options.filename || options.saveAs(__newFile);
+            //     fd = path.join(dirname, filename);
+            // }
+            var fd = __newFile.fd;
 
             receiver__.once('error', function (err) {
                 mongoose.disconnect();
@@ -157,11 +156,11 @@ module.exports = function GridFSStore (globalOpts) {
                 var gfs = Grid(conn.db);
 
                 var outs = gfs.createWriteStream({
-                    filename: filename,
+                    filename: fd,
                     root: options.bucket,
                     metadata: {
-                        filePath: filePath,
-                        dirPath: dirPath
+                        fd: fd,
+                        dirname: __newFile.dirname || path.dirname(__newFile.fd)
                     }
                 });
                 __newFile.once('error', function (err) {
