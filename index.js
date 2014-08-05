@@ -23,13 +23,6 @@ module.exports = function GridFSStore (globalOpts) {
 
     _.defaults(globalOpts, {
 
-        // By default, create new files on Gridstore
-        // using their uploaded filenames.
-        // (no overwrite-checking is performed!!)
-        saveAs: function (__newFile) {
-            return __newFile.filename;
-        },
-
         dirname: '/',
 
         dbname: 'your-mongodb-name',
@@ -154,9 +147,9 @@ module.exports = function GridFSStore (globalOpts) {
                 filePath = path.join(dirPath, filename);
             }
 
-            receiver__.once('error', function (err) { 
-                mongoose.disconnect();      
-                console.log('ERROR ON RECEIVER__ ::',err);
+            receiver__.once('error', function (err) {
+                mongoose.disconnect();
+                // console.log('ERROR ON RECEIVER__ ::',err);
                 done(err);
             });
 
@@ -173,11 +166,11 @@ module.exports = function GridFSStore (globalOpts) {
                 });
                 __newFile.once('error', function (err) {
                     receiver__.emit('error', err);
-                    console.log('***** READ error on file ' + __newFile.filename, '::', err);
+                    // console.log('***** READ error on file ' + __newFile.filename, '::', err);
                 });
                 outs.once('error', function failedToWriteFile(err) {
                     receiver__.emit('error', err);
-                    console.log('Error on output stream- garbage collecting unfinished uploads...');
+                    // console.log('Error on output stream- garbage collecting unfinished uploads...');
                 });
                 outs.once('open', function openedWriteStream() {
                     extra = _.assign({fileId: this.id}, this.options.metadata);
@@ -189,7 +182,7 @@ module.exports = function GridFSStore (globalOpts) {
                 });
                 __newFile.pipe(outs);
                 
-            })
+            });
         };
         return receiver__;
     }
@@ -210,7 +203,7 @@ module.exports = function GridFSStore (globalOpts) {
                     globalOpts.dbname = database;
                 }
             } catch (err) {
-                console.log('Using defaults', err);
+                // console.log('Using defaults', err);
             }
         }
     }
@@ -224,7 +217,7 @@ module.exports = function GridFSStore (globalOpts) {
                 port: globalOpts.port
             }],
             database: globalOpts.dbname
-        })
+        });
     }
 
     function _URIisValid(uri) {
