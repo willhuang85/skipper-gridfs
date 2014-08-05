@@ -112,81 +112,91 @@ module.exports = function GridFSStore (globalOpts) {
 
             });
         },
-        receive: GridFSReceiver
+
+        /**
+         * A simple receiver for Skipper that writes Upstreams to
+         * gridfs
+         *
+         *
+         * @param  {Object} options
+         * @return {Stream.Writable}
+         */
+        receive: function GridFSReceiver (options) {
+            options = options || {};
+            options = _.defaults(options, globalOpts);
+
+            var receiver__ = Writable({
+                objectMode: true
+            });
+
+            // This `_write` method is invoked each time a new file is received
+            // from the Readable stream (Upstream) which is pumping filestreams
+            // into this receiver.  (filename === `__newFile.filename`).
+            receiver__._write = function onFile(__newFile, encoding, done) {
+                
+                var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
+
+                // console.log('write fd:',__newFile.fd);
+                var fd = __newFile.fd;
+
+                receiver__.once('error', function (err) {
+                    mongoose.disconnect();
+                    // console.log('ERROR ON RECEIVER__ ::',err);
+                    done(err);
+                });
+
+                conn.once('open', function() {
+                    var gfs = Grid(conn.db);
+                    // console.log('Opened connection for (%s)',fd);
+
+                    var outs = gfs.createWriteStream({
+                        filename: fd,
+                        root: options.bucket,
+                        metadata: {
+                            fd: fd,
+                            dirname: __newFile.dirname || path.dirname(__newFile.fd)
+                        }
+                    });
+                    __newFile.once('error', function (err) {
+                        receiver__.emit('error', err);
+                        // console.log('***** READ error on file ' + __newFile.filename, '::', err);
+                    });
+                    outs.once('error', function failedToWriteFile(err) {
+                        receiver__.emit('error', err);
+                        // console.log('Error on file output stream- garbage collecting unfinished uploads...');
+                    });
+                    outs.once('open', function openedWriteStream() {
+                        // console.log('opened output stream for',__newFile.fd);
+                        extra = _.assign({fileId: this.id}, this.options.metadata);
+                        __newFile.extra = extra;
+                    });
+                    outs.once('close', function doneWritingFile(file) {
+                        // console.log('closed output stream for',__newFile.fd);
+                        conn.db.close();
+                        done();
+                    });
+                    __newFile.pipe(outs);
+                    
+                });
+            };
+            return receiver__;
+        }
     };
 
     return adapter;
 
 
-    /**
-     * A simple receiver for Skipper that writes Upstreams to
-     * gridfs
-     *
-     *
-     * @param  {Object} options
-     * @return {Stream.Writable}
-     */
-    function GridFSReceiver (options) {
-        options = options || {};
-        options = _.defaults(options, globalOpts);
 
-        var receiver__ = Writable({
-            objectMode: true
-        });
 
-        // This `_write` method is invoked each time a new file is received
-        // from the Readable stream (Upstream) which is pumping filestreams
-        // into this receiver.  (filename === `__newFile.filename`).
-        receiver__._write = function onFile(__newFile, encoding, done) {
-            
-            var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
 
-            console.log('write fd:',__newFile.fd);
-            var fd = __newFile.fd;
 
-            receiver__.once('error', function (err) {
-                mongoose.disconnect();
-                console.log('ERROR ON RECEIVER__ ::',err);
-                console.log('done? ::',done);
-                done(err);
-            });
 
-            conn.once('open', function() {
-                var gfs = Grid(conn.db);
-                console.log('Opened connection for (%s)',fd);
 
-                var outs = gfs.createWriteStream({
-                    filename: fd,
-                    root: options.bucket,
-                    metadata: {
-                        fd: fd,
-                        dirname: __newFile.dirname || path.dirname(__newFile.fd)
-                    }
-                });
-                __newFile.once('error', function (err) {
-                    receiver__.emit('error', err);
-                    console.log('***** READ error on file ' + __newFile.filename, '::', err);
-                });
-                outs.once('error', function failedToWriteFile(err) {
-                    receiver__.emit('error', err);
-                    console.log('Error on file output stream- garbage collecting unfinished uploads...');
-                });
-                outs.once('open', function openedWriteStream() {
-                    console.log('opened output stream for',__newFile.fd);
-                    extra = _.assign({fileId: this.id}, this.options.metadata);
-                    __newFile.extra = extra;
-                });
-                outs.once('close', function doneWritingFile(file) {
-                    console.log('closed output stream for',__newFile.fd);
-                    conn.db.close();
-                    done();
-                });
-                __newFile.pipe(outs);
-                
-            });
-        };
-        return receiver__;
-    }
+
+
+
+    // Helper methods:
+    ////////////////////////////////////////////////////////////////////////////////
 
     function _setURI() {
         if (globalOpts.uri && _URIisValid(globalOpts.uri)) {
@@ -210,7 +220,7 @@ module.exports = function GridFSStore (globalOpts) {
     }
 
     function _getURI() {
-        return globalOpts.uri = mongodburi.format({
+        globalOpts.uri = mongodburi.format({
             username: globalOpts.username,
             password: globalOpts.password,
             hosts: [{
@@ -219,6 +229,7 @@ module.exports = function GridFSStore (globalOpts) {
             }],
             database: globalOpts.dbname
         });
+        return globalOpts.uri;
     }
 
     function _URIisValid(uri) {
