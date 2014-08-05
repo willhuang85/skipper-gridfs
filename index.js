@@ -125,35 +125,26 @@ module.exports = function GridFSStore (globalOpts) {
             objectMode: true
         });
 
-        var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
         // This `_write` method is invoked each time a new file is received
         // from the Readable stream (Upstream) which is pumping filestreams
         // into this receiver.  (filename === `__newFile.filename`).
         receiver__._write = function onFile(__newFile, encoding, done) {
-
-            // var fd, dirname, filename;
-            // if (options.id) {
-            //     // If `options.id` was specified, use it directly as the path.
-            //     fd = options.id;
-            //     dirname = path.dirname(fd);
-            //     filename = path.basename(fd);
-            // }
-            // else {
-            //     // Otherwise, use the more sophisiticated options:
-            //     dirname = path.resolve(options.dirname);
-            //     filename = options.filename || options.saveAs(__newFile);
-            //     fd = path.join(dirname, filename);
-            // }
+            
+            var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
+            
+            console.log('write fd:',__newFile.fd);
             var fd = __newFile.fd;
 
             receiver__.once('error', function (err) {
                 mongoose.disconnect();
-                // console.log('ERROR ON RECEIVER__ ::',err);
+                console.log('ERROR ON RECEIVER__ ::',err);
+                console.log('done? ::',done);
                 done(err);
             });
 
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
+                console.log('Opened connection for (%s)',fd);
 
                 var outs = gfs.createWriteStream({
                     filename: fd,
@@ -165,17 +156,19 @@ module.exports = function GridFSStore (globalOpts) {
                 });
                 __newFile.once('error', function (err) {
                     receiver__.emit('error', err);
-                    // console.log('***** READ error on file ' + __newFile.filename, '::', err);
+                    console.log('***** READ error on file ' + __newFile.filename, '::', err);
                 });
                 outs.once('error', function failedToWriteFile(err) {
                     receiver__.emit('error', err);
-                    // console.log('Error on output stream- garbage collecting unfinished uploads...');
+                    console.log('Error on file output stream- garbage collecting unfinished uploads...');
                 });
                 outs.once('open', function openedWriteStream() {
+                    console.log('opened output stream for',__newFile.fd);
                     extra = _.assign({fileId: this.id}, this.options.metadata);
                     __newFile.extra = extra;
                 });
                 outs.once('close', function doneWritingFile(file) {
+                    console.log('closed output stream for',__newFile.fd);
                     conn.db.close();
                     done();
                 });
