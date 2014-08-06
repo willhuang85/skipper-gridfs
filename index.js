@@ -2,10 +2,11 @@
  * Module dependencies
  */
 
+var path = require('path');
+var util = require('util');
 var Writable = require('stream').Writable;
 var mongodburi = require('mongodb-uri');
 var _ = require('lodash');
-var path = require('path');
 var concat = require('concat-stream');
 var mongoose = require('mongoose');
 var Grid = require('gridfs-stream');
@@ -22,15 +23,6 @@ module.exports = function GridFSStore (globalOpts) {
     globalOpts = globalOpts || {};
 
     _.defaults(globalOpts, {
-
-        // By default, create new files on Gridstore
-        // using their uploaded filenames.
-        // (no overwrite-checking is performed!!)
-        saveAs: function (__newFile) {
-            return __newFile.filename;
-        },
-
-        dirname: '/',
 
         dbname: 'your-mongodb-name',
 
@@ -52,12 +44,12 @@ module.exports = function GridFSStore (globalOpts) {
     _setURI();
 
     var adapter = {
-        ls: function (dirpath, cb) {
+        ls: function (dirname, cb) {
             var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             var data = new Array();
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
-                gfs.collection(globalOpts.bucket).find({'metadata.dirPath': dirpath}).toArray(function(err, files) {
+                gfs.collection(globalOpts.bucket).find({'metadata.dirname': dirname}).toArray(function(err, files) {
                     mongoose.disconnect();
                     if (err) return cb(err);
                     
@@ -69,13 +61,21 @@ module.exports = function GridFSStore (globalOpts) {
             });
             
         },
-        read: function (filepath, cb) {
+        read: function (fd, cb) {
             var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
-                gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
+                gfs.collection(globalOpts.bucket).findOne({'metadata.fd': fd}, function(err, file) {
                     if (err) {
                         mongoose.disconnect();
+                        return cb(err);
+                    }
+                    if (!file) {
+                        err = new Error('ENOENT');
+                        err.name = 'Error (ENOENT)';
+                        err.code = 'ENOENT';
+                        err.status = 404;
+                        err.message = util.format('No file exists in this mongo gridfs bucket with that file descriptor (%s)', fd);
                         return cb(err);
                     }
                     var readstream = gfs.createReadStream({_id: file._id, root: globalOpts.bucket});
@@ -94,11 +94,11 @@ module.exports = function GridFSStore (globalOpts) {
                 });
             });
         },
-        rm: function(filepath, cb) {
+        rm: function(fd, cb) {
             var conn = mongoose.createConnection(_getURI(), globalOpts.mongoOpts);
             conn.once('open', function() {
                 var gfs = Grid(conn.db);
-                gfs.collection(globalOpts.bucket).findOne({'metadata.filePath': filepath}, function(err, file) {
+                gfs.collection(globalOpts.bucket).findOne({'metadata.fd': fd}, function(err, file) {
                     if (err) {
                         mongoose.disconnect();
                         cb(err);
@@ -106,94 +106,97 @@ module.exports = function GridFSStore (globalOpts) {
                     gfs.remove({_id: file._id, root: globalOpts.bucket}, function(err) {
                         mongoose.disconnect();
                         if (err) return cb(err);
-                        return cb(null, filepath);
+                        return cb(null, fd);
                     });
                 });
 
             });
         },
-        receive: GridFSReceiver,
-        receiver: GridFSReceiver // (synonym for `.receive()`)
+
+        /**
+         * A simple receiver for Skipper that writes Upstreams to
+         * gridfs
+         *
+         *
+         * @param  {Object} options
+         * @return {Stream.Writable}
+         */
+        receive: function GridFSReceiver (options) {
+            options = options || {};
+            options = _.defaults(options, globalOpts);
+
+            var receiver__ = Writable({
+                objectMode: true
+            });
+
+            // This `_write` method is invoked each time a new file is received
+            // from the Readable stream (Upstream) which is pumping filestreams
+            // into this receiver.  (filename === `__newFile.filename`).
+            receiver__._write = function onFile(__newFile, encoding, done) {
+                
+                var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
+
+                // console.log('write fd:',__newFile.fd);
+                var fd = __newFile.fd;
+
+                receiver__.once('error', function (err) {
+                    mongoose.disconnect();
+                    // console.log('ERROR ON RECEIVER__ ::',err);
+                    done(err);
+                });
+
+                conn.once('open', function() {
+                    var gfs = Grid(conn.db);
+                    // console.log('Opened connection for (%s)',fd);
+
+                    var outs = gfs.createWriteStream({
+                        filename: fd,
+                        root: options.bucket,
+                        metadata: {
+                            fd: fd,
+                            dirname: __newFile.dirname || path.dirname(__newFile.fd)
+                        }
+                    });
+                    __newFile.once('error', function (err) {
+                        receiver__.emit('error', err);
+                        // console.log('***** READ error on file ' + __newFile.filename, '::', err);
+                    });
+                    outs.once('error', function failedToWriteFile(err) {
+                        receiver__.emit('error', err);
+                        // console.log('Error on file output stream- garbage collecting unfinished uploads...');
+                    });
+                    outs.once('open', function openedWriteStream() {
+                        // console.log('opened output stream for',__newFile.fd);
+                        extra = _.assign({fileId: this.id}, this.options.metadata);
+                        __newFile.extra = extra;
+                    });
+                    outs.once('close', function doneWritingFile(file) {
+                        // console.log('closed output stream for',__newFile.fd);
+                        conn.db.close();
+                        done();
+                    });
+                    __newFile.pipe(outs);
+                    
+                });
+            };
+            return receiver__;
+        }
     };
 
     return adapter;
 
 
-    /**
-     * A simple receiver for Skipper that writes Upstreams to
-     * gridfs
-     *
-     *
-     * @param  {Object} options
-     * @return {Stream.Writable}
-     */
-    function GridFSReceiver (options) {
-        options = options || {};
-        options = _.defaults(options, globalOpts);
 
-        var receiver__ = Writable({
-            objectMode: true
-        });
 
-        var conn = mongoose.createConnection(_getURI(), options.mongoOpts);
-        // This `_write` method is invoked each time a new file is received
-        // from the Readable stream (Upstream) which is pumping filestreams
-        // into this receiver.  (filename === `__newFile.filename`).
-        receiver__._write = function onFile(__newFile, encoding, done) {
 
-            var filePath, dirPath, filename;
-            if (options.id) {
-                // If `options.id` was specified, use it directly as the path.
-                filePath = options.id;
-                dirPath = path.dirname(filePath);
-                filename = path.basename(filePath);
-            }
-            else {
-                // Otherwise, use the more sophisiticated options:
-                dirPath = path.resolve(options.dirname);
-                filename = options.filename || options.saveAs(__newFile);
-                filePath = path.join(dirPath, filename);
-            }
 
-            receiver__.once('error', function (err) { 
-                mongoose.disconnect();      
-                console.log('ERROR ON RECEIVER__ ::',err);
-                done(err);
-            });
 
-            conn.once('open', function() {
-                var gfs = Grid(conn.db);
 
-                var outs = gfs.createWriteStream({
-                    filename: filename,
-                    root: options.bucket,
-                    metadata: {
-                        filePath: filePath,
-                        dirPath: dirPath
-                    }
-                });
-                __newFile.once('error', function (err) {
-                    receiver__.emit('error', err);
-                    console.log('***** READ error on file ' + __newFile.filename, '::', err);
-                });
-                outs.once('error', function failedToWriteFile(err) {
-                    receiver__.emit('error', err);
-                    console.log('Error on output stream- garbage collecting unfinished uploads...');
-                });
-                outs.once('open', function openedWriteStream() {
-                    extra = _.assign({fileId: this.id}, this.options.metadata);
-                    __newFile.extra = extra;
-                });
-                outs.once('close', function doneWritingFile(file) {
-                    conn.db.close();
-                    done();
-                });
-                __newFile.pipe(outs);
-                
-            })
-        };
-        return receiver__;
-    }
+
+
+
+    // Helper methods:
+    ////////////////////////////////////////////////////////////////////////////////
 
     function _setURI() {
         if (globalOpts.uri && _URIisValid(globalOpts.uri)) {
@@ -211,13 +214,13 @@ module.exports = function GridFSStore (globalOpts) {
                     globalOpts.dbname = database;
                 }
             } catch (err) {
-                console.log('Using defaults', err);
+                // console.log('Using defaults', err);
             }
         }
     }
 
     function _getURI() {
-        return globalOpts.uri = mongodburi.format({
+        globalOpts.uri = mongodburi.format({
             username: globalOpts.username,
             password: globalOpts.password,
             hosts: [{
@@ -225,7 +228,8 @@ module.exports = function GridFSStore (globalOpts) {
                 port: globalOpts.port
             }],
             database: globalOpts.dbname
-        })
+        });
+        return globalOpts.uri;
     }
 
     function _URIisValid(uri) {
