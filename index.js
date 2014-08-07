@@ -124,7 +124,6 @@ module.exports = function GridFSStore (globalOpts) {
         receive: function GridFSReceiver (options) {
             options = options || {};
             options = _.defaults(options, globalOpts);
-            console.log(options);
 
             var receiver__ = Writable({
                 objectMode: true
@@ -200,7 +199,6 @@ module.exports = function GridFSStore (globalOpts) {
     ////////////////////////////////////////////////////////////////////////////////
 
     function _setURI() {
-        console.log('Setting URI');
         if (globalOpts.uri && _URIisValid(globalOpts.uri)) {
             try {
                 var uriObject = mongodburi.parse(globalOpts.uri);
