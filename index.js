@@ -38,7 +38,7 @@ module.exports = function GridFSStore (globalOpts) {
 
         uri: '',
 
-        mongoOpts: { db: { native_parser: true, w: 'majority' }}
+        mongoOpts: { db: { native_parser: true}}
     });
 
     _setURI();
