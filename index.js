@@ -233,7 +233,7 @@ module.exports = function GridFSStore (globalOpts) {
     }
 
     function _URIisValid(uri) {
-        var regex = /^(mongodb:\/{2})?((\w+?):(\w+?)@|:?@?)(\w+?):(\d+)\/([\w_-]+?).{0,1}([\w_-]+?)$/gm;
+        var regex = /^(mongodb:\/{2})?((\w+?):(\w+?)@|:?@?)(\w+?):(\d+)\/([\w_-]+?).{0,1}([\w_-]+?)$/g;
         return regex.test(uri);
     }
 };
