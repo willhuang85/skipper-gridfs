@@ -25,7 +25,10 @@ Our short-to-medium-term roadmap items, in order of descending priority:
 
  Feature                                                  | Owner                                                                            | Details
  :------------------------------------------------------- | :------------------------------------------------------------------------------- | :------
-  validate mongo URI                  | [@willhuang85](https://github.com/willhuang85)                                   | Need to validate uri. Possibly using regex.
+
+<!--
+  ~~validate mongo URI                  | [@willhuang85](https://github.com/willhuang85)                                   | Need to validate uri. Possibly using regex.
+-->
 
 
 #### Backlog
