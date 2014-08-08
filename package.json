@@ -4,7 +4,7 @@
   "description": "A skipper adapter to allow uploading files to MongoDB's GridFS",
   "main": "index.js",
   "scripts": {
-    "test": "node -e \"require('skipper-adapter-tests')({module: require('./'), uri: 'mongodb://localhost:27017/your-mongodb-name.my-bucket'});\""
+    "test": "node -e \"require('skipper-adapter-tests')({module: require('./'), uri: process.env.URI});\""
   },
   "repository": {
     "type": "git",
