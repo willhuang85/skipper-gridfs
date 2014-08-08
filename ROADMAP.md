@@ -25,7 +25,7 @@ Our short-to-medium-term roadmap items, in order of descending priority:
 
  Feature                                                  | Owner                                                                            | Details
  :------------------------------------------------------- | :------------------------------------------------------------------------------- | :------
-  N/A                  | [@mikermcneil](https://github.com/mikermcneil)                                   | No additional features are planned at this time (`skipper-gridfs`-specific stuff, that is)
+  validate mongo URI                  | [@willhuang85](https://github.com/willhuang85)                                   | Need to validate uri. Possibly using regex.
 
 
 #### Backlog
@@ -36,5 +36,5 @@ _(feel free to suggest things)_
 
  Feature                                         | Owner                                                                            | Details
  :---------------------------------------------- | :------------------------------------------------------------------------------- | :------
- _feature requests_  | [_want to help?_](https://github.com/balderdashy/skipper/edit/master/ROADMAP.md) | _edit this file_
+ _no feature requests yet_  | [_want to help?_](https://github.com/balderdashy/skipper/edit/master/ROADMAP.md) | _edit this file_
 
