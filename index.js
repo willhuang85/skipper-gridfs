@@ -38,7 +38,7 @@ module.exports = function GridFSStore (globalOpts) {
 
         uri: '',
 
-        mongoOpts: { db: { native_parser: true, w: 'majority' }}
+        mongoOpts: { db: { native_parser: true}}
     });
 
     _setURI();
@@ -233,8 +233,8 @@ module.exports = function GridFSStore (globalOpts) {
     }
 
     function _URIisValid(uri) {
-        //TODO
-        return true;
+        var regex = /^(mongodb:\/{2})?((\w+?):(\S+?)@|:?@?)(\w+?):(\d+)\/([\w_-]+?).{0,1}([\w_-]+?)$/g;
+        return regex.test(uri);
     }
 };
 
