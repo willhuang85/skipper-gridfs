@@ -28,7 +28,6 @@
   },
   "dependencies": {
     "concat-stream": "~1.4.6",
-    "gridfs-locking-stream": "^0.2.4",
     "gridfs-stream": "~0.5.1",
     "lodash": "~2.4.1",
     "mongodb": "^1.4.18",
