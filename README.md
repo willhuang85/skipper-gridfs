@@ -49,6 +49,15 @@ One important adapter-specific option to note is `uri`:
 >>Note:
 >>Please use `uri` instead of passing in separate options for `username`, `password`, `host`, `port`, `dbname` and `bucket`
 
+In addition to the regular file adapter [methods](https://github.com/balderdashy/skipper#what-are-filesystem-adapters), these additional methods are also available:
+
+Method      | Description
+ ----------- | ------------------
+ `readLastVersion()`      | Get the most recent version of a file in GridFS
+ `readVersion()`    | Get a specific version of a file in GridFS
+ 
+ These methods mimic [get_last_version](http://api.mongodb.org/python/current/api/gridfs/#gridfs.GridFS.get_last_version) and [get_version](http://api.mongodb.org/python/current/api/gridfs/#gridfs.GridFS.get_version) from pymongo's gridfs implementation.
+
 ========================================
 
 ## Contributions
