@@ -79,10 +79,26 @@ module.exports = function GridFSStore (globalOpts) {
                         db.close();
                         return cb(err);
                     }
-                    GridStore.read(db, fd, null, null, {root: globalOpts.bucket}, function(err, fileData) {
+
+                    var gridStore = new GridStore(db, fd, 'r', {root: globalOpts.bucket});
+                    gridStore.open(function(err, gridStore) {
+                      if (err) {
                         db.close();
-                        if (err) return cb(err);
-                        return cb(null, fileData);
+                        return cb(err);
+                      }
+                      var stream = gridStore.stream(true);
+                      stream.pipe(concat(function(data){
+                        return cb(null, data);
+                      }));
+
+                      stream.on('error', function(err) {
+                        db.close();
+                        return cb(err);
+                      });
+
+                      stream.on('close', function() {
+                        db.close();
+                      });
                     });
                 });
                 
@@ -125,10 +141,26 @@ module.exports = function GridFSStore (globalOpts) {
                             db.close();
                             return cb(err);
                         }
-                        GridStore.read(db, file.filename, null, null, {root: globalOpts.bucket}, function(err, fileData) {
+
+                        var gridStore = new GridStore(db, fd, 'r', {root: globalOpts.bucket});
+                        gridStore.open(function(err, gridStore) {
+                          if (err) {
                             db.close();
-                            if (err) return cb(err);
-                            return cb(null, fileData);
+                            return cb(err);
+                          }
+                          var stream = gridStore.stream(true);
+                          stream.pipe(concat(function(data){
+                            return cb(null, data);
+                          }));
+
+                          stream.on('error', function(err) {
+                            db.close();
+                            return cb(err);
+                          });
+
+                          stream.on('close', function() {
+                            db.close();
+                          });
                         });
                     });
                 });
@@ -204,7 +236,6 @@ module.exports = function GridFSStore (globalOpts) {
                     });
                     outs.once('close', function doneWritingFile(file) {
                         // console.log('closed output stream for',__newFile.fd);
-                        // mongoose.disconnect();
                         db.close();
                         done();
                     });
