@@ -38,7 +38,9 @@ module.exports = function GridFSStore (globalOpts) {
 
         password: '',
 
-        uri: ''
+        uri: '',
+    
+        mode:'w+'//default for gridfs-stream is w+
     });
 
     _setURI();
@@ -213,15 +215,25 @@ module.exports = function GridFSStore (globalOpts) {
 
                     var gfs = Grid(db, mongo);
                     // console.log('Opened connection for (%s)',fd);
-
-                    var outs = gfs.createWriteStream({
+    
+                    var metadata = options.metadata || {
+                        fd: fd,
+                        dirname: __newFile.dirname || path.dirname(fd)
+                    };
+    
+                    var writeOptions = {
                         filename: fd,
                         root: options.bucket,
-                        metadata: {
-                            fd: fd,
-                            dirname: __newFile.dirname || path.dirname(fd)
-                        }
-                    });
+                        metadata: metadata,
+                        mode:options.mode
+                    };
+    
+                    if (options.getTypeFromHeader){
+                        writeOptions.content_type = __newFile.headers["content-type"];
+                    }                 
+
+                    var outs = gfs.createWriteStream(writeOptions);
+                    
                     __newFile.once('error', function (err) {
                         receiver__.emit('error', err);
                         // console.log('***** READ error on file ' + __newFile.filename, '::', err);
@@ -262,7 +274,8 @@ module.exports = function GridFSStore (globalOpts) {
     ////////////////////////////////////////////////////////////////////////////////
 
     function _setURI() {
-        if (!globalOpts.uri || !_URIisValid(globalOpts.uri)) {
+        var URItest = _URIisValid(globalOpts.uri);
+        if (!globalOpts.uri || !URItest) {
             globalOpts.uri = mongodburi.format({
                 username: globalOpts.username,
                 password: globalOpts.password,
@@ -272,16 +285,25 @@ module.exports = function GridFSStore (globalOpts) {
                 }],
                 database: globalOpts.dbname
             });
-        } else {
+        } else if (URItest==1) {
             var uriandbucket = globalOpts.uri.trim();
             globalOpts.uri = uriandbucket.substring(0, uriandbucket.lastIndexOf('.'));
-            globalOpts.bucket = uriandbucket.substring(uriandbucket.lastIndexOf('.')+1);            
+            globalOpts.bucket = uriandbucket.substring(uriandbucket.lastIndexOf('.')+1); 
+        }else if (URItest==2){
+            globalOpts.uri = globalOpts.uri.trim();
         }
     }
 
     function _URIisValid(uri) {
-        var regex = /^(mongodb:\/{2})?((\w+?):(\S+?)@|:?@?)([\w._-]+?):(\d+)\/([\w_-]+?).{0,1}([\w_-]+?)$/g;
-        return regex.test(uri);
+        var regex = /^(mongodb:\/{2})?((\w+?):(\S+?)@|:?@?)([\w._-]+?):(\d+)\/([\w_-]+?)\..{0,1}([\w_-]+?)$/i;
+        var regex2 = /^(mongodb:\/{2})?((\w+?):(\S+?)@|:?@?)([\w._-]+?):(\d+)\/.*/i;
+        if (regex.test(uri)){
+            return 1;
+        }else if (regex2.test(uri)){
+            return 2;
+        }else{
+            return 0;
+        }
     }
 };
 
