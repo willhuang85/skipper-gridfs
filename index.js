@@ -11,11 +11,26 @@ var concat = require('concat-stream');
 var Grid = require('gridfs-stream');
 
 var mongo = require('mongodb'),
-GridStore = require('mongodb').GridStore,
-MongoClient = require('mongodb').MongoClient,
+    GridStore = require('mongodb').GridStore,
+    MongoClient = require('mongodb').MongoClient,
     Server = require('mongodb');
 
-var db;
+function connectionBuilder(opts) {
+
+    var db;
+
+    return function (cb) {
+
+        if (db) {
+            cb(db);
+        } else {
+            MongoClient.connect(opts.uri, {native_parser: true}, function (err, _db) {
+                db = _db;
+                cb(db);
+            });
+        }
+    };
+}
 
 
 /**
@@ -24,8 +39,7 @@ var db;
  * @param  {Object} globalOpts
  * @return {Object}
  */
-
-module.exports = function GridFSStore (globalOpts) {
+module.exports = function GridFSStore(globalOpts) {
     globalOpts = globalOpts || {};
 
     _.defaults(globalOpts, {
@@ -47,31 +61,30 @@ module.exports = function GridFSStore (globalOpts) {
 
     _setURI();
 
-    var db;
-
-    MongoClient.connect(globalOpts.uri,{native_parser:true},function(err,_db){
-        db = _db;
-    });
-
+    var getConnection = connectionBuilder(globalOpts);
 
 
     var adapter = {
         ls: function (dirname, cb) {
+
+            getConnection(function (db) {
+
                 var gfs = Grid(db, mongo);
-                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function(err, indexName) {
+                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function (err, indexName) {
                     if (err) {
                         return cb(err);
                     }
-                    gfs.collection(globalOpts.bucket).distinct('filename', {'metadata.dirname': dirname}, function(err, files) {
+                    gfs.collection(globalOpts.bucket).distinct('filename', {'metadata.dirname': dirname}, function (err, files) {
                         if (err) return cb(err);
                         return cb(null, files);
                     });
                 });
+            });
         },
 
-        read: function(fd, cb) {
-
-                GridStore.exist(db, fd, globalOpts.bucket, function(err, exists) {
+        read: function (fd, cb) {
+            getConnection(function (db) {
+                GridStore.exist(db, fd, globalOpts.bucket, function (err, exists) {
                     if (err) {
                         return cb(err);
                     }
@@ -85,36 +98,36 @@ module.exports = function GridFSStore (globalOpts) {
                     }
 
                     var gridStore = new GridStore(db, fd, 'r', {root: globalOpts.bucket});
-                    gridStore.open(function(err, gridStore) {
-                      if (err) {
-                        return cb(err);
-                      }
-                      var stream = gridStore.stream(true);
-                      stream.pipe(concat(function(data){
-                        return cb(null, data);
-                      }));
+                    gridStore.open(function (err, gridStore) {
+                        if (err) {
+                            return cb(err);
+                        }
+                        var stream = gridStore.stream(true);
+                        stream.pipe(concat(function (data) {
+                            return cb(null, data);
+                        }));
 
-                      stream.on('error', function(err) {
+                        stream.on('error', function (err) {
 
-                        return cb(err);
-                      });
+                            return cb(err);
+                        });
 
-                      stream.on('close', function() {
+                        stream.on('close', function () {
 
-                      });
+                        });
                     });
                 });
-
-
+            });
         },
 
         readLastVersion: function (fd, cb) {
             this.readVersion(fd, -1, cb);
         },
 
-        readVersion: function(fd, version, cb) {
+        readVersion: function (fd, version, cb) {
+            getConnection(function (db) {
                 var gfs = Grid(db, mongo);
-                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function(err, indexName){
+                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function (err, indexName) {
                     if (err) {
                         return cb(err);
                     }
@@ -127,7 +140,7 @@ module.exports = function GridFSStore (globalOpts) {
                         cursor.limit(-1).skip(version).sort([['uploadDate', 'asc']])
                     }
 
-                    cursor.nextObject(function(err, file) {
+                    cursor.nextObject(function (err, file) {
                         if (err) {
                             return cb(err);
                         }
@@ -141,33 +154,35 @@ module.exports = function GridFSStore (globalOpts) {
                         }
 
                         var gridStore = new GridStore(db, fd, 'r', {root: globalOpts.bucket});
-                        gridStore.open(function(err, gridStore) {
-                          if (err) {
-                            return cb(err);
-                          }
-                          var stream = gridStore.stream(true);
-                          stream.pipe(concat(function(data){
-                            return cb(null, data);
-                          }));
+                        gridStore.open(function (err, gridStore) {
+                            if (err) {
+                                return cb(err);
+                            }
+                            var stream = gridStore.stream(true);
+                            stream.pipe(concat(function (data) {
+                                return cb(null, data);
+                            }));
 
-                          stream.on('error', function(err) {
-                            return cb(err);
-                          });
+                            stream.on('error', function (err) {
+                                return cb(err);
+                            });
 
-                          stream.on('close', function() {
-                          });
+                            stream.on('close', function () {
+                            });
                         });
                     });
                 });
-
+            });
         },
 
-        rm: function(fd, cb) {
+        rm: function (fd, cb) {
+            getConnection(function (db) {
                 var gfs = Grid(db, mongo);
-                gfs.remove({filename: fd, root: globalOpts.bucket}, function(err, results) {
+                gfs.remove({filename: fd, root: globalOpts.bucket}, function (err, results) {
                     if (err) return cb(err);
                     return cb();
                 });
+            });
         },
 
         /**
@@ -178,13 +193,14 @@ module.exports = function GridFSStore (globalOpts) {
          * @param  {Object} options
          * @return {Stream.Writable}
          */
-        receive: function GridFSReceiver (options) {
+        receive: function GridFSReceiver(options) {
             options = options || {};
             options = _.defaults(options, globalOpts);
 
             var receiver__ = Writable({
                 objectMode: true
             });
+
 
             // This `_write` method is invoked each time a new file is received
             // from the Readable stream (Upstream) which is pumping filestreams
@@ -194,12 +210,12 @@ module.exports = function GridFSStore (globalOpts) {
                 var fd = __newFile.fd;
 
 
+                receiver__.once('error', function (err) {
+                    // console.log('ERROR ON RECEIVER__ ::',err);
+                    done(err);
+                });
 
-                    receiver__.once('error', function (err) {
-                        // console.log('ERROR ON RECEIVER__ ::',err);
-                        done(err);
-                    });
-
+                getConnection(function (db) {
                     var gfs = Grid(db, mongo);
                     // console.log('Opened connection for (%s)',fd);
 
@@ -228,23 +244,16 @@ module.exports = function GridFSStore (globalOpts) {
                         done();
                     });
                     __newFile.pipe(outs);
+                });
+
+
             };
             return receiver__;
         }
     };
 
 
-
     return adapter;
-
-
-
-
-
-
-
-
-
 
 
     // Helper methods:
@@ -264,7 +273,7 @@ module.exports = function GridFSStore (globalOpts) {
         } else {
             var uriandbucket = globalOpts.uri.trim();
             globalOpts.uri = uriandbucket.substring(0, uriandbucket.lastIndexOf('.'));
-            globalOpts.bucket = uriandbucket.substring(uriandbucket.lastIndexOf('.')+1);            
+            globalOpts.bucket = uriandbucket.substring(uriandbucket.lastIndexOf('.') + 1);
         }
     }
 
@@ -273,5 +282,3 @@ module.exports = function GridFSStore (globalOpts) {
         return regex.test(uri);
     }
 };
-
-
