@@ -142,7 +142,7 @@ module.exports = function GridFSStore (globalOpts) {
                             return cb(err);
                         }
 
-                        var gridStore = new GridStore(db, fd, 'r', {root: globalOpts.bucket});
+                        var gridStore = new GridStore(db, file._id, 'r', {root: globalOpts.bucket});
                         gridStore.open(function(err, gridStore) {
                           if (err) {
                             db.close();
