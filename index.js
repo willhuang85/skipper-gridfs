@@ -273,9 +273,52 @@ module.exports = function GridFSStore (globalOpts) {
                 database: globalOpts.dbname
             });
         } else {
-            var uriandbucket = globalOpts.uri.trim();
-            globalOpts.uri = uriandbucket.substring(0, uriandbucket.lastIndexOf('.'));
-            globalOpts.bucket = uriandbucket.substring(uriandbucket.lastIndexOf('.')+1);            
+            //Thanks to Java's Mongodb driver ConnectionString.class
+            var serverPart;
+            var nsPart;
+            var userName = '';
+            var password = '';
+            var database;
+            var bucket;
+            var prefix = 'mongodb://';
+
+            var unprefixeduri = globalOpts.uri.trim().substring(prefix.length);
+            var idx = unprefixeduri.lastIndexOf('/');
+            if (idx < 0) {
+                serverPart = unprefixeduri;
+            } else {
+                serverPart = unprefixeduri.substring(0, idx);
+                nsPart = unprefixeduri.substring(idx + 1);
+            }
+
+            idx = serverPart.indexOf('@');
+
+            if (idx > 0) {
+                var authPart = serverPart.substring(0, idx);
+                serverPart = serverPart.substring(idx + 1);
+                idx = authPart.indexOf(':');
+                if (idx == -1) {
+                    userName = authPart;
+                } else {
+                    userName = authPart.substring(0, idx);
+                    password = authPart.substring(idx + 1);
+                }
+            }
+
+            if (nsPart && nsPart.trim() !== '') {
+                idx = nsPart.indexOf('.');
+                if (idx < 0) {
+                    database = nsPart;
+                } else {
+                    database = nsPart.substring(0, idx);
+                    bucket = nsPart.substring(idx + 1);
+                }
+            }
+
+            bucket = bucket ? bucket : globalOpts.bucket;
+            database = database ? database : globalOpts.dbname;
+            globalOpts.uri = prefix+userName+(password ? ':' : '')+password+(password&&userName||userName ? '@' : '')+serverPart+'/'+database;
+            globalOpts.bucket = bucket;
         }
     }
 
