@@ -11,8 +11,27 @@ var concat = require('concat-stream');
 var Grid = require('gridfs-stream');
 
 var mongo = require('mongodb'),
-GridStore = require('mongodb').GridStore,
-MongoClient = require('mongodb').MongoClient;
+    GridStore = require('mongodb').GridStore,
+    MongoClient = require('mongodb').MongoClient,
+    Server = require('mongodb');
+
+function connectionBuilder(opts) {
+
+    var db;
+
+    return function (cb) {
+
+        if (db) {
+            cb(db);
+        } else {
+            MongoClient.connect(opts.uri, {native_parser: true}, function (err, _db) {
+                db = _db;
+                cb(db);
+            });
+        }
+    };
+}
+
 
 /**
  * skipper-gridfs
@@ -43,19 +62,20 @@ module.exports = function GridFSStore (globalOpts) {
 
     _setURI();
 
+    var getConnection = connectionBuilder(globalOpts);
+
+
     var adapter = {
         ls: function (dirname, cb) {
-            MongoClient.connect(globalOpts.uri, {native_parser:true}, function(err, db) {
-                if (err) return cb(err);
+
+            getConnection(function (db) {
+
                 var gfs = Grid(db, mongo);
-                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function(err, indexName) {
+                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function (err, indexName) {
                     if (err) {
-                        db.close();
                         return cb(err);
                     }
-
-                    gfs.collection(globalOpts.bucket).distinct('filename', {'metadata.dirname': dirname}, function(err, files) {
-                        db.close();
+                    gfs.collection(globalOpts.bucket).distinct('filename', {'metadata.dirname': dirname}, function (err, files) {
                         if (err) return cb(err);
                         return cb(null, files);
                     });
@@ -63,11 +83,10 @@ module.exports = function GridFSStore (globalOpts) {
             });
         },
 
-        read: function(fd, cb) {
-            MongoClient.connect(globalOpts.uri, {native_parser:true}, function(err, db) {
-                GridStore.exist(db, fd, globalOpts.bucket, function(err, exists) {
+        read: function (fd, cb) {
+            getConnection(function (db) {
+                GridStore.exist(db, fd, globalOpts.bucket, function (err, exists) {
                     if (err) {
-                        db.close();
                         return cb(err);
                     }
                     if (!exists) {
@@ -76,32 +95,29 @@ module.exports = function GridFSStore (globalOpts) {
                         err.code = 'ENOENT';
                         err.status = 404;
                         err.message = util.format('No file exists in this mongo gridfs bucket with that file descriptor (%s)', fd);
-                        db.close();
                         return cb(err);
                     }
 
                     var gridStore = new GridStore(db, fd, 'r', {root: globalOpts.bucket});
-                    gridStore.open(function(err, gridStore) {
-                      if (err) {
-                        db.close();
-                        return cb(err);
-                      }
-                      var stream = gridStore.stream(true);
-                      stream.pipe(concat(function(data){
-                        return cb(null, data);
-                      }));
+                    gridStore.open(function (err, gridStore) {
+                        if (err) {
+                            return cb(err);
+                        }
+                        var stream = gridStore.stream(true);
+                        stream.pipe(concat(function (data) {
+                            return cb(null, data);
+                        }));
 
-                      stream.on('error', function(err) {
-                        db.close();
-                        return cb(err);
-                      });
+                        stream.on('error', function (err) {
 
-                      stream.on('close', function() {
-                        db.close();
-                      });
+                            return cb(err);
+                        });
+
+                        stream.on('close', function () {
+
+                        });
                     });
                 });
-                
             });
         },
 
@@ -109,13 +125,11 @@ module.exports = function GridFSStore (globalOpts) {
             this.readVersion(fd, -1, cb);
         },
 
-        readVersion: function(fd, version, cb) {
-            MongoClient.connect(globalOpts.uri, {native_parser:true}, function(err, db) {
-                if (err) return cb(err);
+        readVersion: function (fd, version, cb) {
+            getConnection(function (db) {
                 var gfs = Grid(db, mongo);
-                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function(err, indexName){
+                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function (err, indexName) {
                     if (err) {
-                        db.close();
                         return cb(err);
                     }
 
@@ -129,7 +143,6 @@ module.exports = function GridFSStore (globalOpts) {
             
                     cursor.nextObject(function(err, file) {
                         if (err) {
-                            db.close();
                             return cb(err);
                         }
                         if (!file) {
@@ -138,7 +151,6 @@ module.exports = function GridFSStore (globalOpts) {
                             err.code = 'ENOENT';
                             err.status = 404;
                             err.message = util.format('No file exists in this mongo gridfs bucket with that file descriptor (%s)', fd);
-                            db.close();
                             return cb(err);
                         }
 
@@ -153,26 +165,22 @@ module.exports = function GridFSStore (globalOpts) {
                             return cb(null, data);
                           }));
 
-                          stream.on('error', function(err) {
-                            db.close();
-                            return cb(err);
-                          });
+                            stream.on('error', function (err) {
+                                return cb(err);
+                            });
 
-                          stream.on('close', function() {
-                            db.close();
-                          });
+                            stream.on('close', function () {
+                            });
                         });
                     });
                 });
             });
         },
 
-        rm: function(fd, cb) {
-            MongoClient.connect(globalOpts.uri, {native_parser:true}, function(err, db) {
-                if (err) return cb(err);
+        rm: function (fd, cb) {
+            getConnection(function (db) {
                 var gfs = Grid(db, mongo);
-                gfs.remove({filename: fd, root: globalOpts.bucket}, function(err, results) {
-                    db.close();
+                gfs.remove({filename: fd, root: globalOpts.bucket}, function (err, results) {
                     if (err) return cb(err);
                     return cb();
                 });
@@ -202,15 +210,13 @@ module.exports = function GridFSStore (globalOpts) {
                 // console.log('write fd:',__newFile.fd);
                 var fd = __newFile.fd;
 
-                MongoClient.connect(globalOpts.uri, {native_parser:true}, function(err, db) {
-                    if (err) return done(err);
 
-                    receiver__.once('error', function (err) {
-                        db.close();
-                        // console.log('ERROR ON RECEIVER__ ::',err);
-                        done(err);
-                    });
+                receiver__.once('error', function (err) {
+                    // console.log('ERROR ON RECEIVER__ ::',err);
+                    done(err);
+                });
 
+                getConnection(function (db) {
                     var gfs = Grid(db, mongo);
                     // console.log('Opened connection for (%s)',fd);
 
@@ -236,7 +242,6 @@ module.exports = function GridFSStore (globalOpts) {
                     });
                     outs.once('close', function doneWritingFile(file) {
                         // console.log('closed output stream for',__newFile.fd);
-                        db.close();
                         done();
                     });
                     __newFile.pipe(outs);
@@ -327,5 +332,3 @@ module.exports = function GridFSStore (globalOpts) {
         return regex.test(uri);
     }
 };
-
-
