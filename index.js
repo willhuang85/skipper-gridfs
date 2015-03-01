@@ -15,23 +15,6 @@ var mongo = require('mongodb'),
     MongoClient = require('mongodb').MongoClient,
     Server = require('mongodb');
 
-function connectionBuilder(opts) {
-
-    var db;
-
-    return function (cb) {
-
-        if (db) {
-            cb(db);
-        } else {
-            MongoClient.connect(opts.uri, {native_parser: true}, function (err, _db) {
-                db = _db;
-                cb(db);
-            });
-        }
-    };
-}
-
 
 /**
  * skipper-gridfs
@@ -60,15 +43,16 @@ module.exports = function GridFSStore (globalOpts) {
         uri: ''
     });
 
-    _setURI();
-
-    var getConnection = connectionBuilder(globalOpts);
+    var getConnection = _connectionBuilder(globalOpts);
 
 
     var adapter = {
         ls: function (dirname, cb) {
 
-            getConnection(function (db) {
+            getConnection(function (db, err) {
+                if (err) {
+                    return cb(err);
+                }
 
                 var gfs = Grid(db, mongo);
                 gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function (err, indexName) {
@@ -84,7 +68,10 @@ module.exports = function GridFSStore (globalOpts) {
         },
 
         read: function (fd, cb) {
-            getConnection(function (db) {
+            getConnection(function (db, err) {
+                if (err) {
+                    return cb(err);
+                }
                 GridStore.exist(db, fd, globalOpts.bucket, function (err, exists) {
                     if (err) {
                         return cb(err);
@@ -126,7 +113,10 @@ module.exports = function GridFSStore (globalOpts) {
         },
 
         readVersion: function (fd, version, cb) {
-            getConnection(function (db) {
+            getConnection(function (db, err) {
+                if (err) {
+                    return cb(err);
+                }
                 var gfs = Grid(db, mongo);
                 gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function (err, indexName) {
                     if (err) {
@@ -135,7 +125,7 @@ module.exports = function GridFSStore (globalOpts) {
 
                     var cursor = gfs.collection(globalOpts.bucket).find({filename: fd});
                     if (version < 0) {
-                        skip = Math.abs(version) - 1
+                        skip = Math.abs(version) - 1;
                         cursor.limit(-1).skip(skip).sort([['uploadDate', 'desc']])
                     } else {
                         cursor.limit(-1).skip(version).sort([['uploadDate', 'asc']])
@@ -178,7 +168,10 @@ module.exports = function GridFSStore (globalOpts) {
         },
 
         rm: function (fd, cb) {
-            getConnection(function (db) {
+            getConnection(function (db, err) {
+                if (err) {
+                    return cb(err);
+                }
                 var gfs = Grid(db, mongo);
                 gfs.remove({filename: fd, root: globalOpts.bucket}, function (err, results) {
                     if (err) return cb(err);
@@ -216,7 +209,10 @@ module.exports = function GridFSStore (globalOpts) {
                     done(err);
                 });
 
-                getConnection(function (db) {
+                getConnection(function (db, err) {
+                    if (err) {
+                        receiver__.emit('error', err);
+                    }
                     var gfs = Grid(db, mongo);
                     // console.log('Opened connection for (%s)',fd);
 
@@ -330,5 +326,23 @@ module.exports = function GridFSStore (globalOpts) {
     function _URIisValid(uri) {
         var regex = /^(mongodb:\/{2})?((\w+?):(\S+?)@|:?@?)([\w._-]+?):(\d+)\/([\w_-]+?).{0,1}([\w_-]+?)$/g;
         return regex.test(uri);
+    }
+
+    function _connectionBuilder(opts) {
+
+        var db;
+        _setURI();
+
+        return function (cb) {
+
+            if (db) {
+                cb(db);
+            } else {
+                MongoClient.connect(opts.uri, {native_parser: true}, function (err, _db) {
+                    db = _db;
+                    cb(db, err);
+                });
+            }
+        };
     }
 };
