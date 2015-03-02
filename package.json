@@ -24,13 +24,13 @@
   },
   "homepage": "https://github.com/willhuang85/skipper-gridfs",
   "devDependencies": {
-    "skipper-adapter-tests": "~1.5.2"
+    "skipper-adapter-tests": "~1.5.3"
   },
   "dependencies": {
     "concat-stream": "~1.4.6",
-    "gridfs-stream": "~0.5.1",
+    "gridfs-stream": "~1.1.0",
     "lodash": "~2.4.1",
-    "mongodb": "^1.4.18",
+    "mongodb": "~2.0",
     "mongodb-uri": "~0.9.7"
   }
 }
