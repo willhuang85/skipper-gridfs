@@ -237,6 +237,8 @@ module.exports = function GridFSStore (globalOpts) {
                     var outs = gfs.createWriteStream({
                         filename: fd,
                         root: options.bucket,
+                        mode: 'w',
+                        content_type: options.content_type,
                         metadata: {
                             fd: fd,
                             dirname: __newFile.dirname || path.dirname(fd)
