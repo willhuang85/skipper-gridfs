@@ -281,7 +281,7 @@ module.exports = function GridFSStore (globalOpts) {
     // Helper methods:
     ////////////////////////////////////////////////////////////////////////////////
     function _getOptions() {
-      return _.assign(globalOpts.connectOpts, { native_parser: true });
+      return _.assign(globalOpts.connectOpts || {}, { native_parser: true });
     }
 
     function _setURI() {
