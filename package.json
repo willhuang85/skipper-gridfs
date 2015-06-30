@@ -17,20 +17,45 @@
     "mongodb",
     "upload"
   ],
-  "author": "Will Huang <willhuang85@gmail.com>",
+  "author": {
+    "name": "Will Huang",
+    "email": "willhuang85@gmail.com"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/willhuang85/skipper-gridfs/issues"
   },
   "homepage": "https://github.com/willhuang85/skipper-gridfs",
   "devDependencies": {
-    "skipper-adapter-tests": "~1.5.3"
+    "skipper-adapter-tests": "~1.5.2"
   },
   "dependencies": {
     "concat-stream": "~1.4.6",
-    "gridfs-stream": "~1.1.0",
+    "gridfs-stream": "~0.5.1",
     "lodash": "~2.4.1",
-    "mongodb": "~2.0",
+    "mongodb": "^1.4.18",
     "mongodb-uri": "~0.9.7"
-  }
+  },
+  "gitHead": "db97f097e51333bd9edb7a679c689b752200ef8c",
+  "_id": "skipper-gridfs@0.5.3",
+  "_shasum": "6880296b3625af05b8635cbfb0043f57b8d2156a",
+  "_from": "skipper-gridfs@*",
+  "_npmVersion": "2.1.4",
+  "_nodeVersion": "0.10.29",
+  "_npmUser": {
+    "name": "willhuang85",
+    "email": "willhuang85@gmail.com"
+  },
+  "maintainers": [
+    {
+      "name": "willhuang85",
+      "email": "willhuang85@gmail.com"
+    }
+  ],
+  "dist": {
+    "shasum": "6880296b3625af05b8635cbfb0043f57b8d2156a",
+    "tarball": "http://registry.npmjs.org/skipper-gridfs/-/skipper-gridfs-0.5.3.tgz"
+  },
+  "directories": {},
+  "_resolved": "https://registry.npmjs.org/skipper-gridfs/-/skipper-gridfs-0.5.3.tgz"
 }
