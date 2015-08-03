@@ -37,7 +37,7 @@ req.file('avatar')
 });
 ```
 
-For more detailed usage information and a full list of available options, see the Skipper docs, especially the section on "[https://github.com/balderdashy/skipper#uploading-files-to-gridfs](Uploading to GridFS)".
+For more detailed usage information and a full list of available options, see the Skipper docs, especially the section on "[Uploading to GridFS](https://github.com/balderdashy/skipper#uploading-files-to-gridfs)".
 
 
 One important adapter-specific option to note is `uri`:
