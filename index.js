@@ -50,7 +50,7 @@ module.exports = function GridFSStore (globalOpts) {
     var adapter = {
         ls: function (dirname, cb) {
 
-            MongoClient.connect(globalOpts.uri, {native_parser: true}, function (err, db) {
+            MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
                 if (err) {
                     return cb(err);
                 }
@@ -71,7 +71,7 @@ module.exports = function GridFSStore (globalOpts) {
         },
 
         read: function (fd, cb) {
-            MongoClient.connect(globalOpts.uri, {native_parser: true}, function (err, db) {
+            MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
                 if (err) {
                     return cb(err);
                 }
@@ -120,7 +120,7 @@ module.exports = function GridFSStore (globalOpts) {
         },
 
         readVersion: function (fd, version, cb) {
-            MongoClient.connect(globalOpts.uri, {native_parser: true}, function (err, db) {
+            MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
                 if (err) {
                     return cb(err);
                 }
@@ -184,7 +184,7 @@ module.exports = function GridFSStore (globalOpts) {
         },
 
         rm: function (fd, cb) {
-            MongoClient.connect(globalOpts.uri, {native_parser: true}, function (err, db) {
+            MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
                 if (err) {
                     return cb(err);
                 }
@@ -227,7 +227,7 @@ module.exports = function GridFSStore (globalOpts) {
                     done(err);
                 });
 
-                MongoClient.connect(globalOpts.uri, {native_parser: true}, function (err, db) {
+                MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
                     if (err) {
                         receiver__.emit('error', err);
                     }
@@ -280,6 +280,9 @@ module.exports = function GridFSStore (globalOpts) {
 
     // Helper methods:
     ////////////////////////////////////////////////////////////////////////////////
+    function _getOptions() {
+      return _.assign(globalOpts.connectOpts || {}, { native_parser: true });
+    }
 
     function _setURI() {
         if (!globalOpts.uri || !_URIisValid(globalOpts.uri)) {
@@ -357,7 +360,7 @@ module.exports = function GridFSStore (globalOpts) {
             if (db) {
                 cb(db);
             } else {
-                MongoClient.connect(opts.uri, {native_parser: true}, function (err, _db) {
+                MongoClient.connect(opts.uri, _getOptions(), function (err, _db) {
                     db = _db;
                     cb(db, err);
                 });
