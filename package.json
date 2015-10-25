@@ -33,7 +33,7 @@
     "concat-stream": "~1.4.6",
     "gridfs-stream": "~0.5.1",
     "lodash": "~2.4.1",
-    "mongodb": "^2.0.46",
+    "mongodb": "git+https://github.com/penciltim/node-mongodb-native.git",
     "mongodb-uri": "^0.9.7"
   },
   "gitHead": "db97f097e51333bd9edb7a679c689b752200ef8c",
