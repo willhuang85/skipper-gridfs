@@ -252,6 +252,7 @@ module.exports = function GridFSStore(globalOpts) {
           var gfs = Grid(db, mongo);
           // console.log('Opened connection for (%s)',fd);
           var outs = gfs.createWriteStream({
+			_id: fd,
             filename: fd,
             root: options.bucket,
             //set content_type start
