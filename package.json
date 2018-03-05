@@ -1,14 +1,14 @@
 {
-  "name": "skipper-gridfs",
-  "version": "0.5.3",
-  "description": "A skipper adapter to allow uploading files to MongoDB's GridFS",
+  "name": "skipper-gridfs-atlas",
+  "version": "0.5.4",
+  "description": "A skipper adapter to allow uploading files to MongoDB's GridFS(include MongoDB Atlas)",
   "main": "index.js",
   "scripts": {
     "test": "node -e \"require('skipper-adapter-tests')({module: require('./'), uri: process.env.URI});\""
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/willhuang85/skipper-gridfs.git"
+    "url": "https://github.com/marcelomedina10/skipper-gridfs.git"
   },
   "keywords": [
     "skipper",
