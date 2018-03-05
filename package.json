@@ -28,9 +28,9 @@
   },
   "dependencies": {
     "concat-stream": "~1.4.6",
-    "gridfs-stream": "~1.1.0",
+    "gridfs-stream": "^1.1.1",
     "lodash": "~2.4.1",
-    "mongodb": "~2.0",
+    "mongodb": "^3.0.3",
     "mongodb-uri": "~0.9.7"
   }
 }
