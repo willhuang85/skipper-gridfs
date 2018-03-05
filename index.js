@@ -265,7 +265,7 @@ module.exports = function GridFSStore (globalOpts) {
                     outs.once('error', function failedToWriteFile(err) {
                         if(!receiverError){
                             receiverError = true;
-                            receiver__.emit('error', err, db);
+                            receiver__.emit('error', err, client);
                             // console.log('Error on file output stream- garbage collecting unfinished uploads...');
                         }
                     });
