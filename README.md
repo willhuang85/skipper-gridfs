@@ -27,7 +27,7 @@ Also make sure you have skipper [installed as your body parser](http://beta.sail
 req.file('avatar')
 .upload({
   adapter: require('skipper-gridfs'),
-  uri: 'mongodb://jimmy@j1mtr0n1xx@mongo.jimmy.com:27017/coolapp.avatar_uploads'
+  uri: 'mongodb://jimmy@j1mtr0n1xx@mongo.jimmy.com:27017/myBucket'
 }, function whenDone(err, uploadedFiles) {
   if (err) return res.negotiate(err);
   else return res.ok({
@@ -40,24 +40,11 @@ req.file('avatar')
 For more detailed usage information and a full list of available options, see the Skipper docs, especially the section on "[Uploading to GridFS](https://github.com/balderdashy/skipper#uploading-files-to-gridfs)".
 
 
-One important adapter-specific option to note is `uri`:
-
-| Option        | Type       | Details |
-|-----------    |:----------:|---------|
-| `uri`         | ((string)) | An optional parameter if you wish the enter your mongodb credentials as a URI, e.g. `mongodb://username:password@localhost:27107/databasename.bucket`.<br/> (Check [mongo client URI syntax](http://api.mongodb.org/java/current/com/mongodb/MongoClientURI.html)).|
-| `connectOpts` | ((object)) | An optional parameter if you wish the enter your mongodb connection options credentials as an object e.g. `{ server: { ssl: true, sslCA: 'CA_CERT', sslKey: 'SSL_KEY', sslCert: 'SSL_CERT' }, replSet: { rs_name: 'rs0', ssl:true} }` <br/> (Check [mongo client connection options](https://mongodb.github.io/node-mongodb-native/api-generated/mongoclient.html#connect)).|
-
->>Note:
->>Please use `uri` instead of passing in separate options for `username`, `password`, `host`, `port`, `dbname` and `bucket`
-
-In addition to the regular file adapter [methods](https://github.com/balderdashy/skipper#what-are-filesystem-adapters), these additional methods are also available:
-
-Method      | Description
- ----------- | ------------------
- `readLastVersion()`      | Get the most recent version of a file in GridFS
- `readVersion()`    | Get a specific version of a file in GridFS
- 
- These methods mimic [get_last_version](http://api.mongodb.org/python/current/api/gridfs/#gridfs.GridFS.get_last_version) and [get_version](http://api.mongodb.org/python/current/api/gridfs/#gridfs.GridFS.get_version) from pymongo's gridfs implementation.
+| Option          | Type       | Details                                                                                                                                                                                                 |
+| --------------- | :--------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `uri`           | ((string)) | URI to connect to Mongo instance, e.g. `mongodb://username:password@localhost:27107/databasename`.<br/> (Check [mongo client URI syntax](https://docs.mongodb.com/manual/reference/connection-string)). |
+| `bucketOptions` | ((object)) | An optional parameter that matches the GridFSBucket options (Check [mongo gridfs bucket options](http://mongodb.github.io/node-mongodb-native/3.1/api/GridFSBucket.html)).                              |
+| `mongoOptions`  | ((object)) | An optional paramter that matches the MongoClient.connect options (Check [mongo client options](http://mongodb.github.io/node-mongodb-native/3.1/api/MongoClient.html#.connect)).                       |
 
 ========================================
 
@@ -72,7 +59,7 @@ Also be sure to check out [ROADMAP.md in the Skipper repo](https://github.com/ba
 To run the tests:
 
 ```shell
-$ URI=mongodb://username:password@localhost:27107/databasename.bucket npm test
+$ URI=mongodb://username:password@localhost:27107/databasename npm test
 ```
 
 

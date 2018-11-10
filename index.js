@@ -1,370 +1,161 @@
-/**
- * Module dependencies
- */
-
-var path = require('path');
-var util = require('util');
-var Writable = require('stream').Writable;
-var mongodburi = require('mongodb-uri');
-var _ = require('lodash');
-var concat = require('concat-stream');
-var Grid = require('gridfs-stream');
-
-var mongo = require('mongodb'),
-    GridStore = require('mongodb').GridStore,
-    MongoClient = require('mongodb').MongoClient,
-    Server = require('mongodb');
+const WritableStream = require('stream').Writable;
+const Transform = require('stream').Transform;
+const mongodb = require('mongodb');
+const path = require('path');
+const mime = require('mime');
+const _ = require('lodash');
 
 
-/**
- * skipper-gridfs
- *
- * @param  {Object} globalOpts
- * @return {Object}
- */
+const client = (uri, mongoOptions, fn) => {
+    const opts = Object.assign({ useNewUrlParser: true }, mongoOptions);
+    mongodb.MongoClient.connect(uri, opts, fn);
+}
 
-module.exports = function GridFSStore (globalOpts) {
-    globalOpts = globalOpts || {};
+const bucket = (db, options) => {
+    const opts = Object.assign({}, options.bucketOptions);
+    return new mongodb.GridFSBucket(db, opts);
+}
 
-    _.defaults(globalOpts, {
+module.exports = function SkipperGridFS(globalOptions) {
+    const options = globalOptions || {};
 
-        dbname: 'your-mongodb-name',
-
-        host: 'localhost',
-
-        port: 27017,
-
-        bucket: GridStore.DEFAULT_ROOT_COLLECTION,
-
-        username: '',
-
-        password: '',
-
-        uri: ''
+    _.defaults(options, {
+        uri: 'mongodb://localhost:27017/mydatabase'
     });
 
-    _setURI();
-    //var getConnection = _connectionBuilder(globalOpts);
-
-
-    var adapter = {
-        ls: function (dirname, cb) {
-
-            MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
-                if (err) {
-                    return cb(err);
-                }
-
-                var gfs = Grid(db, mongo);
-                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function (err, indexName) {
-                    if (err) {
-                        db.close();
-                        return cb(err);
-                    }
-                    gfs.collection(globalOpts.bucket).distinct('filename', {'metadata.dirname': dirname}, function (err, files) {
-                        db.close();
-                        if (err) return cb(err);
-                        return cb(null, files);
-                    });
-                });
-            });
-        },
-
-        read: function (fd, cb) {
-            MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
-                if (err) {
-                    return cb(err);
-                }
-                GridStore.exist(db, fd, globalOpts.bucket, function (err, exists) {
-                    if (err) {
-                        db.close();
-                        return cb(err);
-                    }
-                    if (!exists) {
-                        err = new Error('ENOENT');
-                        err.name = 'Error (ENOENT)';
-                        err.code = 'ENOENT';
-                        err.status = 404;
-                        err.message = util.format('No file exists in this mongo gridfs bucket with that file descriptor (%s)', fd);
-                        db.close();
-                        return cb(err);
-                    }
-
-                    var gridStore = new GridStore(db, fd, 'r', {root: globalOpts.bucket});
-                    gridStore.open(function (err, gridStore) {
-                        if (err) {
-                            db.close();
-                            return cb(err);
-                        }
-                        var stream = gridStore.stream();
-                        stream.pipe(concat(function (data) {
-                            db.close();
-                            return cb(null, data);
-                        }));
-
-                        stream.on('error', function (err) {
-                            db.close();
-                            return cb(err);
-                        });
-
-                        stream.on('close', function () {
-                            db.close();
-                        });
-                    });
-                });
-            });
-        },
-
-        readLastVersion: function (fd, cb) {
-            this.readVersion(fd, -1, cb);
-        },
-
-        readVersion: function (fd, version, cb) {
-            MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
-                if (err) {
-                    return cb(err);
-                }
-                var gfs = Grid(db, mongo);
-                gfs.collection(globalOpts.bucket).ensureIndex({filename: 1, uploadDate: -1}, function (err, indexName) {
-                    if (err) {
-                        db.close();
-                        return cb(err);
-                    }
-
-                    var cursor = gfs.collection(globalOpts.bucket).find({filename: fd});
-                    if (version < 0) {
-                        var skip = Math.abs(version) - 1;
-                        cursor.limit(-1).skip(skip).sort({uploadDate: -1}); //'desc
-                    } else {
-                        cursor.limit(-1).skip(version).sort({uploadDate: 1}); //'asc'
-                    }
-
-                    cursor.next(function(err, file) {
-
-                        if (err) {
-                            console.log(err);
-                            db.close();
-                            return cb(err);
-                        }
-                        if (!file) {
-                            err = new Error('ENOENT');
-                            err.name = 'Error (ENOENT)';
-                            err.code = 'ENOENT';
-                            err.status = 404;
-                            err.message = util.format('No file exists in this mongo gridfs bucket with that file descriptor (%s)', fd);
-                            db.close();
-                            return cb(err);
-                        }
-
-                        var gridStore = new GridStore(db, file._id, 'r', {root: globalOpts.bucket});
-                        gridStore.open(function(err, gridStore) {
-                            if (err) {
-                                db.close();
-                                return cb(err);
-                            }
-
-                            var stream = gridStore.stream();
-                            stream.pipe(concat(function(data){
-                                db.close();
-                                return cb(null, data);
-                            }));
-
-                            stream.on('error', function (err) {
-                                db.close();
-                                return cb(err);
-                            });
-
-                            stream.on('close', function () {
-                                db.close();
-                            });
-                        });
-                    });
-                });
-            });
-        },
-
-        rm: function (fd, cb) {
-            MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
-                if (err) {
-                    return cb(err);
-                }
-                var gfs = Grid(db, mongo);
-                gfs.remove({filename: fd, root: globalOpts.bucket}, function (err, results) {
-                    db.close();
-                    if (err) return cb(err);
-                    return cb();
-                });
-            });
-        },
-
-        /**
-         * A simple receiver for Skipper that writes Upstreams to
-         * gridfs
-         *
-         *
-         * @param  {Object} options
-         * @return {Stream.Writable}
-         */
-        receive: function GridFSReceiver (options) {
-            options = options || {};
-            options = _.defaults(options, globalOpts);
-
-            var receiver__ = Writable({
-                objectMode: true
-            });
-
-            // This `_write` method is invoked each time a new file is received
-            // from the Readable stream (Upstream) which is pumping filestreams
-            // into this receiver.  (filename === `__newFile.filename`).
-            receiver__._write = function onFile(__newFile, encoding, done) {
-                // console.log('write fd:',__newFile.fd);
-                var fd = __newFile.fd;
-
-
-                receiver__.once('error', function (err, db) {
-                    // console.log('ERROR ON RECEIVER__ ::',err);
-                    db.close();
-                    done(err);
-                });
-
-                MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
-                    if (err) {
-                        receiver__.emit('error', err);
-                    }
-                    var gfs = Grid(db, mongo);
-                    // console.log('Opened connection for (%s)',fd);
-
-                    var outs = gfs.createWriteStream({
-                        filename: fd,
-                        root: options.bucket,
-                        metadata: {
-                            fd: fd,
-                            dirname: __newFile.dirname || path.dirname(fd)
-                        }
-                    });
-                    __newFile.once('error', function (err) {
-                        receiver__.emit('error', err, db);
-                        // console.log('***** READ error on file ' + __newFile.filename, '::', err);
-                    });
-                    outs.once('error', function failedToWriteFile(err) {
-                        receiver__.emit('error', err, db);
-                        // console.log('Error on file output stream- garbage collecting unfinished uploads...');
-                    });
-                    outs.once('open', function openedWriteStream() {
-                        // console.log('opened output stream for',__newFile.fd);
-                        __newFile.extra = _.assign({fileId: this.id}, this.options.metadata);
-                    });
-                    outs.once('close', function doneWritingFile(file) {
-                        // console.log('closed output stream for',__newFile.fd);
-                        db.close();
-                        done();
-                    });
-                    __newFile.pipe(outs);
-                });
-            };
-            return receiver__;
+    const adapter = {};
+    adapter.rm = (fd, cb) => {
+        const errorHandler = (err, client) => {
+            if (client) client.close();
+            if (cb) cb(err);
         }
-    };
 
-    return adapter;
+        client(options.uri, options.mongoOptions, (err, client) => {
+            if (err) {
+                errorHandler(err, client);
+            }
 
-
-
-
-
-
-
-
-
-
-
-    // Helper methods:
-    ////////////////////////////////////////////////////////////////////////////////
-    function _getOptions() {
-      return _.assign(globalOpts.connectOpts || {}, { native_parser: true });
+            bucket(client.db(), options).delete(fd._id, errorHandler);
+            if (cb) cb();
+        });
     }
 
-    function _setURI() {
-        if (!globalOpts.uri || !_URIisValid(globalOpts.uri)) {
-            globalOpts.uri = mongodburi.format({
-                username: globalOpts.username,
-                password: globalOpts.password,
-                hosts: [{
-                    host: globalOpts.host,
-                    port: globalOpts.port
-                }],
-                database: globalOpts.dbname
-            });
-        } else {
-            //Thanks to Java's Mongodb driver ConnectionString.class
-            var serverPart;
-            var nsPart;
-            var userName = '';
-            var password = '';
-            var database;
-            var bucket;
-            var prefix = 'mongodb://';
-
-            var unprefixeduri = globalOpts.uri.trim().substring(prefix.length);
-            var idx = unprefixeduri.lastIndexOf('/');
-            if (idx < 0) {
-                serverPart = unprefixeduri;
-            } else {
-                serverPart = unprefixeduri.substring(0, idx);
-                nsPart = unprefixeduri.substring(idx + 1);
-            }
-
-            idx = serverPart.indexOf('@');
-
-            if (idx > 0) {
-                var authPart = serverPart.substring(0, idx);
-                serverPart = serverPart.substring(idx + 1);
-                idx = authPart.indexOf(':');
-                if (idx == -1) {
-                    userName = authPart;
-                } else {
-                    userName = authPart.substring(0, idx);
-                    password = authPart.substring(idx + 1);
-                }
-            }
-
-            if (nsPart && nsPart.trim() !== '') {
-                idx = nsPart.indexOf('.');
-                if (idx < 0) {
-                    database = nsPart;
-                } else {
-                    database = nsPart.substring(0, idx);
-                    bucket = nsPart.substring(idx + 1);
-                }
-            }
-
-            bucket = bucket ? bucket : globalOpts.bucket;
-            database = database ? database : globalOpts.dbname;
-            globalOpts.uri = prefix+userName+(password ? ':' : '')+password+(password&&userName||userName ? '@' : '')+serverPart+'/'+database;
-            globalOpts.bucket = bucket;
+    adapter.ls = (dirpath, cb) => {
+        const errorHandler = (err, client) => {
+            if (client) client.close();
+            if (cb) cb(err);
         }
-    }
 
-    function _URIisValid(uri) {
-        var regex = /^(mongodb:\/{2})?((\w+?):(\S+?)@|:?@?)([\w._-]+?):(\d+)\/([\w_-]+?).{0,1}([\w_-]+?)$/g;
-        return regex.test(uri);
-    }
-
-    function _connectionBuilder(opts) {
-
-        var db;
-        _setURI();
-
-        return function (cb) {
-
-            if (db) {
-                cb(db);
-            } else {
-                MongoClient.connect(opts.uri, _getOptions(), function (err, _db) {
-                    db = _db;
-                    cb(db, err);
-                });
-            }
+        const __transform__ = Transform();
+        __transform__._transform = (chunk, encoding, callback) => {
+            return callback(null, chunk);
         };
+
+        client(options.uri, options.mongoOptions, (err, client) => {
+            if (err) {
+                errorHandler(err, client);
+            }
+
+            const cursor = bucket(client.db(), options).find({ 'metadata.dirname': dirpath })
+            if (cb) {
+                cursor.toArray((err, documents) => {
+                    if (err) {
+                        errorHandler(err, client);
+                    }
+
+                    client.close();
+                    cb(null, documents);
+                });
+            } else {
+                cursor.pipe(__transform__);
+            }
+        });
+
+        if (!cb) {
+            return __transform__;
+        }
     }
+
+    adapter.read = (fd, cb) => {
+        const __transform__ = Transform();
+        __transform__._transform = (chunk, encoding, callback) => {
+            return callback(null, chunk);
+        };
+
+        __transform__.once('error', (error, client) => {
+            if (client) client.close();
+            if (cb) cb(error);
+        });
+
+        __transform__.once('done', (client) => {
+            if (client) client.close();
+        });
+
+        client(options.uri, options.mongoOptions, (err, client) => {
+            if (err) {
+                __transform__.emit('error', error, client);
+            }
+
+            const downloadStream = bucket(client.db(), options).openDownloadStream(fd._id);
+            downloadStream.once('end', () => {
+                __transform__.emit('done', client);
+            });
+
+            downloadStream.pipe(__transform__);
+        });
+
+        return __transform__;
+    }
+
+    adapter.receive = (opts) => {
+        const receiver__ = WritableStream({ objectMode: true });
+
+        receiver__.once('done', (client, done) => {
+            if (client) client.close();
+            if (done) done();
+        });
+
+        receiver__.once('error', (error, client, done) => {
+            if (client) client.close();
+            if (done) done(error);
+        });
+
+        receiver__.write = (__newFile, encoding, done) => {
+            client(options.uri, options.mongoOptions, (error, client) => {
+                if (error) {
+                    receiver__.emit('error', error, client, done);
+                }
+
+                const fd = __newFile.fd;
+                const filename = __newFile.filename;
+
+                const __outs = bucket(client.db(), options).openUploadStreamWithId(fd, filename, {
+                    metadata: {
+                        filename: filename,
+                        fd: fd,
+                        dirname: __newFile.dirname || path.dirname(fd)
+                    },
+                    contentType: mime.getType(fd)
+                });
+
+                __newFile.once('close', () => {
+                    receiver__.emit('done', client, done);
+                });
+                __newFile.once('error', (error) => {
+                    receiver__.emit('error', error, client, done);
+                });
+                __outs.once('finish', () => {
+                    receiver__.emit('done', client, done);
+                });
+                __outs.once('error', (error) => {
+                    receiver__.emit('error', error, client, done);
+                });
+
+                __newFile.pipe(__outs);
+            });
+        }
+        return receiver__;
+    }
+    return adapter;
 };
+
