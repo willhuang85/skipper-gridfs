@@ -11,8 +11,8 @@ const client = (uri, mongoOptions, fn) => {
     mongodb.MongoClient.connect(uri, opts, fn);
 }
 
-const bucket = (db, options) => {
-    const opts = Object.assign({}, options.bucketOptions);
+const bucket = (db, bucketOptions) => {
+    const opts = Object.assign({}, bucketOptions);
     return new mongodb.GridFSBucket(db, opts);
 }
 
@@ -35,7 +35,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 errorHandler(err, client);
             }
 
-            bucket(client.db(), options).delete(fd._id, errorHandler);
+            bucket(client.db(), options.bucketOptions).delete(fd._id, errorHandler);
             if (cb) cb();
         });
     }
@@ -56,7 +56,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 errorHandler(err, client);
             }
 
-            const cursor = bucket(client.db(), options).find()
+            const cursor = bucket(client.db(), options.bucketOptions).find()
             if (cb) {
                 cursor.toArray((err, documents) => {
                     if (err) {
@@ -98,7 +98,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 __transform__.emit('error', error, client);
             }
 
-            const downloadStream = bucket(client.db(), options).openDownloadStream(fd._id);
+            const downloadStream = bucket(client.db(), options.bucketOptions).openDownloadStream(fd._id);
             downloadStream.once('end', () => {
                 __transform__.emit('done', client);
             });
@@ -131,7 +131,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 const fd = __newFile.fd;
                 const filename = __newFile.filename;
 
-                const __outs = bucket(client.db(), options).openUploadStreamWithId(fd, filename, {
+                const __outs = bucket(client.db(), options.bucketOptions).openUploadStreamWithId(fd, filename, {
                     metadata: {
                         filename: filename,
                         fd: fd,
