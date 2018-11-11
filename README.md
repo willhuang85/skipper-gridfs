@@ -54,8 +54,6 @@ are welcomed :ok_hand:
 
 See [ROADMAP.md](https://github.com/willhuang85/skipper-gridfs/blob/master/ROADMAP.md).
 
-Also be sure to check out [ROADMAP.md in the Skipper repo](https://github.com/balderdashy/skipper/blob/master/ROADMAP.md).
-
 To run the tests:
 
 ```shell
