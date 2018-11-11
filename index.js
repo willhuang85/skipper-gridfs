@@ -56,15 +56,12 @@ module.exports = function SkipperGridFS(globalOptions) {
                 errorHandler(err, client);
             }
 
-            const cursor = bucket(client.db(), options.bucketOptions).find()
+            const cursor = bucket(client.db(), options.bucketOptions).find({ 'metadata.dirname': dirpath })
             if (cb) {
                 cursor.toArray((err, documents) => {
                     if (err) {
                         errorHandler(err, client);
                     }
-
-                    console.log(documents);
-
                     client.close();
                     cb(null, documents);
                 });
