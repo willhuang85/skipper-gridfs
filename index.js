@@ -128,7 +128,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 const fd = __newFile.fd;
                 const filename = __newFile.filename;
 
-                const __outs = bucket(client.db(), options.bucketOptions).openUploadStreamWithId(fd, filename, {
+                const outs__ = bucket(client.db(), options.bucketOptions).openUploadStreamWithId(fd, filename, {
                     metadata: {
                         filename: filename,
                         fd: fd,
@@ -143,14 +143,14 @@ module.exports = function SkipperGridFS(globalOptions) {
                 __newFile.once('error', (error) => {
                     receiver__.emit('error', error, client, done);
                 });
-                __outs.once('finish', () => {
+                outs__.once('finish', () => {
                     receiver__.emit('done', client, done);
                 });
-                __outs.once('error', (error) => {
+                outs__.once('error', (error) => {
                     receiver__.emit('error', error, client, done);
                 });
 
-                __newFile.pipe(__outs);
+                __newFile.pipe(outs__);
             });
         }
         return receiver__;
