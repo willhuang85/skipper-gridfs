@@ -4,6 +4,8 @@ const mongodb = require('mongodb');
 const path = require('path');
 const mime = require('mime');
 const _ = require('lodash');
+const concat = require('concat-stream');
+
 
 
 const client = (uri, mongoOptions, fn) => {
@@ -35,7 +37,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 errorHandler(err, client);
             }
 
-            bucket(client.db(), options.bucketOptions).delete(fd._id, errorHandler);
+            bucket(client.db(), options.bucketOptions).delete(fd, (err) => errorHandler(err, client));
             if (cb) cb();
         });
     }
@@ -46,31 +48,38 @@ module.exports = function SkipperGridFS(globalOptions) {
             if (cb) cb(err);
         }
 
-        const __transform__ = Transform();
+        const __transform__ = Transform({ objectMode: true });
         __transform__._transform = (chunk, encoding, callback) => {
-            return callback(null, chunk);
+            return callback(null, chunk._id ? chunk._id : null);
         };
+
+        __transform__.once('done', (client) => {
+            client.close();
+        });
+
 
         client(options.uri, options.mongoOptions, (err, client) => {
             if (err) {
                 errorHandler(err, client);
             }
 
-            const cursor = bucket(client.db(), options.bucketOptions).find({ 'metadata.dirname': dirpath })
-            if (cb) {
-                cursor.toArray((err, documents) => {
-                    if (err) {
-                        errorHandler(err, client);
-                    }
-                    client.close();
-                    cb(null, documents);
-                });
-            } else {
-                cursor.pipe(__transform__);
-            }
+            const stream = bucket(client.db(), options.bucketOptions).find({ 'metadata.dirname': dirpath }).transformStream();
+            stream.once('error', (err) => {
+                errorHandler(err, client);
+            });
+
+            stream.once('end', () => {
+                __transform__.emit('done', client);
+            });
+
+            stream.pipe(__transform__);
         });
 
-        if (!cb) {
+        if (cb) {
+            __transform__.pipe(concat((data) => {
+                return cb(null, Array.isArray(data) ? data : [data]);
+            }));
+        } else {
             return __transform__;
         }
     }
@@ -95,7 +104,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 __transform__.emit('error', error, client);
             }
 
-            const downloadStream = bucket(client.db(), options.bucketOptions).openDownloadStream(fd._id);
+            const downloadStream = bucket(client.db(), options.bucketOptions).openDownloadStream(fd);
             downloadStream.once('end', () => {
                 __transform__.emit('done', client);
             });
@@ -103,7 +112,13 @@ module.exports = function SkipperGridFS(globalOptions) {
             downloadStream.pipe(__transform__);
         });
 
-        return __transform__;
+        if (cb) {
+            __transform__.pipe(concat((data) => {
+                return cb(null, data);
+            }));
+        } else {
+            return __transform__;
+        }
     }
 
     adapter.receive = (opts) => {
