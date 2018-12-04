@@ -5,6 +5,8 @@
 
 GridFS adapter for receiving [upstreams](https://github.com/balderdashy/skipper#what-are-upstreams). Particularly useful for handling streaming multipart file uploads from the [Skipper](https://github.com/balderdashy/skipper) body parser.
 
+Currently only supports Node 6 and up
+
 
 ========================================
 
@@ -27,7 +29,7 @@ Also make sure you have skipper [installed as your body parser](http://beta.sail
 req.file('avatar')
 .upload({
   adapter: require('skipper-gridfs'),
-  uri: 'mongodb://jimmy@j1mtr0n1xx@mongo.jimmy.com:27017/myBucket'
+  uri: 'mongodb://username:password@myhost.com:27017/myDatabase'
 }, function whenDone(err, uploadedFiles) {
   if (err) return res.negotiate(err);
   else return res.ok({
