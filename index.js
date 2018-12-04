@@ -4,6 +4,8 @@ const mongodb = require('mongodb');
 const path = require('path');
 const mime = require('mime');
 const _ = require('lodash');
+const concat = require('concat-stream');
+
 
 
 const client = (uri, mongoOptions, fn) => {
@@ -63,7 +65,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                         errorHandler(err, client);
                     }
                     client.close();
-                    cb(null, documents);
+                    cb(null, documents.map((d) => d._id));
                 });
             } else {
                 cursor.pipe(__transform__);
@@ -95,7 +97,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 __transform__.emit('error', error, client);
             }
 
-            const downloadStream = bucket(client.db(), options.bucketOptions).openDownloadStream(fd._id);
+            const downloadStream = bucket(client.db(), options.bucketOptions).openDownloadStream(fd);
             downloadStream.once('end', () => {
                 __transform__.emit('done', client);
             });
@@ -103,7 +105,13 @@ module.exports = function SkipperGridFS(globalOptions) {
             downloadStream.pipe(__transform__);
         });
 
-        return __transform__;
+        if (cb) {
+            __transform__.pipe(concat((data) => {
+                return cb(null, data);
+            }));
+        } else {
+            return __transform__;
+        }
     }
 
     adapter.receive = (opts) => {
