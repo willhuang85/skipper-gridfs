@@ -37,7 +37,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 errorHandler(err, client);
             }
 
-            bucket(client.db(), options.bucketOptions).delete(fd._id, errorHandler);
+            bucket(client.db(), options.bucketOptions).delete(fd, (err) => errorHandler(err, client));
             if (cb) cb();
         });
     }
