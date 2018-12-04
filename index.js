@@ -48,31 +48,38 @@ module.exports = function SkipperGridFS(globalOptions) {
             if (cb) cb(err);
         }
 
-        const __transform__ = Transform();
+        const __transform__ = Transform({ objectMode: true });
         __transform__._transform = (chunk, encoding, callback) => {
-            return callback(null, chunk);
+            return callback(null, chunk._id ? chunk._id : null);
         };
+
+        __transform__.once('done', (client) => {
+            client.close();
+        });
+
 
         client(options.uri, options.mongoOptions, (err, client) => {
             if (err) {
                 errorHandler(err, client);
             }
 
-            const cursor = bucket(client.db(), options.bucketOptions).find({ 'metadata.dirname': dirpath })
-            if (cb) {
-                cursor.toArray((err, documents) => {
-                    if (err) {
-                        errorHandler(err, client);
-                    }
-                    client.close();
-                    cb(null, documents.map((d) => d._id));
-                });
-            } else {
-                cursor.pipe(__transform__);
-            }
+            const stream = bucket(client.db(), options.bucketOptions).find({ 'metadata.dirname': dirpath }).transformStream();
+            stream.once('error', (err) => {
+                errorHandler(err, client);
+            });
+
+            stream.once('end', () => {
+                __transform__.emit('done', client);
+            });
+
+            stream.pipe(__transform__);
         });
 
-        if (!cb) {
+        if (cb) {
+            __transform__.pipe(concat((data) => {
+                return cb(null, Array.isArray(data) ? data : [data]);
+            }));
+        } else {
             return __transform__;
         }
     }
