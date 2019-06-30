@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/willhuang85/skipper-gridfs",
   "devDependencies": {
-    "skipper-adapter-tests": "github:willhuang85/skipper-adapter-tests#master"
+    "skipper-adapter-tests": "^2.0.0"
   },
   "dependencies": {
     "concat-stream": "^1.6.2",

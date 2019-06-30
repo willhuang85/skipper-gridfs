@@ -108,9 +108,9 @@ module.exports = function SkipperGridFS(globalOptions) {
             downloadStream.once('end', () => {
                 __transform__.emit('done', client);
             });
-            
+
             downloadStream.once('error', (error) => {
-              __transform__.emit('error', error, client);
+                __transform__.emit('error', error, client);
             });
 
             downloadStream.pipe(__transform__);
@@ -156,9 +156,9 @@ module.exports = function SkipperGridFS(globalOptions) {
                     contentType: mime.getType(fd)
                 });
 
-                __newFile.once('close', () => {
-                    receiver__.emit('done', client, done);
-                });
+                // __newFile.once('close', () => {
+                //     receiver__.emit('done', client, done);
+                // });
                 __newFile.once('error', (error) => {
                     receiver__.emit('error', error, client, done);
                 });
