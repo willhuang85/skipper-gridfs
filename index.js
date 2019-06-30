@@ -157,6 +157,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 });
 
                 __newFile.once('close', () => {
+                    outs__.end();
                     receiver__.emit('done', client, done);
                 });
                 __newFile.once('error', (error) => {
