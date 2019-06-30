@@ -156,9 +156,9 @@ module.exports = function SkipperGridFS(globalOptions) {
                     contentType: mime.getType(fd)
                 });
 
-                // __newFile.once('close', () => {
-                //     receiver__.emit('done', client, done);
-                // });
+                __newFile.once('close', () => {
+                    receiver__.emit('done', client, done);
+                });
                 __newFile.once('error', (error) => {
                     receiver__.emit('error', error, client, done);
                 });
