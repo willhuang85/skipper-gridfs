@@ -174,6 +174,49 @@ module.exports = function SkipperGridFS(globalOptions) {
         }
         return receiver__;
     }
+
+    adapter.info = (fd, cb) => {
+        const errorHandler = (err, client) => {
+            if (client) client.close();
+            if (cb) cb(err);
+        }
+
+        const __transform__ = Transform({ objectMode: true });
+        __transform__._transform = (fileInfo, encoding, callback) => {
+            return callback(null, fileInfo);
+        };
+
+        __transform__.once('done', (client) => {
+            client.close();
+        });
+
+
+        client(options.uri, options.mongoOptions, (err, client) => {
+            if (err) {
+                errorHandler(err, client);
+            }
+
+            const stream = bucket(client.db(), options.bucketOptions).find({ 'metadata.fd' : fd }).transformStream();
+            stream.once('error', (err) => {
+                errorHandler(err, client);
+            });
+
+            stream.once('end', () => {
+                __transform__.emit('done', client);
+            });
+
+            stream.pipe(__transform__);
+        });
+
+        if (cb) {
+            __transform__.pipe(concat((data) => {
+                return cb(null, Array.isArray(data) ? data : [data]);
+            }));
+        } else {
+            return __transform__;
+        }
+    }
+
     return adapter;
 };
 
