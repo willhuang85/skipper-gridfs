@@ -134,20 +134,11 @@ module.exports = function SkipperGridFS(globalOptions) {
     adapter.receive = (opts) => {
         const receiver__ = WritableStream({ objectMode: true });
 
-        receiver__.once('done', (client, done) => {
-            if (client) client.close();
-            if (done) done();
-        });
-
-        receiver__.once('error', (error, client, done) => {
-            if (client) client.close();
-            if (done) done(error);
-        });
-
-        receiver__.write = (__newFile, encoding, done) => {
+        receiver__._write = (__newFile, encoding, done) => {
             client(options.uri, options.mongoOptions, (error, client) => {
                 if (error) {
-                    receiver__.emit('error', error, client, done);
+                    if (client) client.close();
+                    if (done) done(error);
                 }
 
                 const fd = __newFile.fd;
@@ -161,18 +152,22 @@ module.exports = function SkipperGridFS(globalOptions) {
                     },
                     contentType: mime.getType(fd)
                 });
-
-                __newFile.once('close', () => {
-                    receiver__.emit('done', client, done);
-                });
-                __newFile.once('error', (error) => {
-                    receiver__.emit('error', error, client, done);
-                });
+               
                 outs__.once('finish', () => {
-                    receiver__.emit('done', client, done);
+                    receiver__.emit('writefile', __newFile);
+                    if (client) client.close();
+                    done();
                 });
-                outs__.once('error', (error) => {
-                    receiver__.emit('error', error, client, done);
+                outs__.once('error', (err) => {
+                    if (client) client.close();
+                    return done({
+                        incoming: __newFile,
+                        outgoing: outs__,
+                        code: 'E_WRITE',
+                        stack: typeof err === 'object' ? err.stack : new Error(err),
+                        name: typeof err === 'object' ? err.name : err,
+                        message: typeof err === 'object' ? err.message : err
+                    });
                 });
 
                 __newFile.pipe(outs__);
