@@ -160,14 +160,7 @@ module.exports = function SkipperGridFS(globalOptions) {
                 });
                 outs__.once('error', (err) => {
                     if (client) client.close();
-                    return done({
-                        incoming: __newFile,
-                        outgoing: outs__,
-                        code: 'E_WRITE',
-                        stack: typeof err === 'object' ? err.stack : new Error(err),
-                        name: typeof err === 'object' ? err.name : err,
-                        message: typeof err === 'object' ? err.message : err
-                    });
+                    return done(err);
                 });
 
                 __newFile.pipe(outs__);
