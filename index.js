@@ -129,16 +129,6 @@ module.exports = function SkipperGridFS(globalOptions) {
     adapter.receive = (opts) => {
         const receiver__ = WritableStream({ objectMode: true });
 
-        receiver__.once('done', (client, done) => {
-            if (client) client.close();
-            if (done) done();
-        });
-
-        receiver__.once('error', (error, client, done) => {
-            if (client) client.close();
-            if (done) done(error);
-        });
-
         // if onProgress handler was provided, bind an event automatically:
         if (_.isFunction(options.onProgress)) {
             receiver__.on('progress', options.onProgress);
@@ -148,10 +138,11 @@ module.exports = function SkipperGridFS(globalOptions) {
         // through one or more attached Upstream(s).
         receiver__._files = [];
 
-        receiver__.write = (__newFile, encoding, done) => {
+        receiver__._write = (__newFile, encoding, done) => {
             client(options.uri, options.mongoOptions, (error, client) => {
                 if (error) {
-                    receiver__.emit('error', error, client, done);
+                    if (client) client.close();
+                    if (done) done(error);
                 }
 
                 const fd = __newFile.fd;
@@ -165,34 +156,29 @@ module.exports = function SkipperGridFS(globalOptions) {
                     },
                     contentType: mime.getType(fd)
                 });
-                /* These listeners are not necessary.
-                    outs__ will always fail if there is an error in __newFile
-    
-                __newFile.once('close', () => {
-                    receiver__.emit('done', client, done);
-                });
-                __newFile.once('error', (error) => {
-                    receiver__.emit('error', error, client, done);
-                });
-                */
+               
                 outs__.once('finish', () => {
-                    receiver__.emit('done', client, done);
+                    receiver__.emit('writefile', __newFile);
+                    if (client) client.close();
+                    done();
                 });
 
-                outs__.once('E_EXCEEDS_UPLOAD_LIMIT', (error) => {
+                outs__.once('E_EXCEEDS_UPLOAD_LIMIT', (err) => {
                     //Aborts GridFS Upload Stream cleaning all invalid chunks (garbage collector)
                     outs__.abort(() => {
-                        receiver__.emit('error', error, client, done);
-                    }) 
+                        if (client) client.close();
+                        return done(err);
+                    }); 
                 });
                 
-                outs__.once('error', (error) => {
+                outs__.once('error', (err) => {
                     //Aborts GridFS Upload Stream cleaning all invalid chunks (garbage collector)
                     outs__.abort(() => {
-                        receiver__.emit('error', error, client, done);
-                    })
+                        if (client) client.close();
+                        return done(err);
+                    }); 
                 });
-                
+
                 // Create another stream that simply keeps track of the progress of the file stream and emits `progress` events
                 // on the receiver.
                 const __progress__ = buildProgressStream(options, __newFile, receiver__, outs__, client, done);
